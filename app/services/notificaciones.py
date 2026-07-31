@@ -21,26 +21,31 @@ def _resumen_lead(lead) -> str:
     """Texto legible del lead para el aviso al asesor."""
     canal = {"whatsapp": "WhatsApp", "instagram": "Instagram",
              "messenger": "Messenger"}.get(lead.source or "whatsapp", lead.source)
-    marca = {"office": "EMA Office", "rentals": "EMA Rentals"}.get(lead.marca or "", "EMA")
-    modelo = (lead.modelo or "").capitalize()
+    tipo = {"oficina": "Oficina", "departamento": "Departamento",
+            "casa": "Casa"}.get(lead.tipo_propiedad or "", lead.tipo_propiedad or "sin definir")
     partes = [
         f"Nuevo prospecto calificado por {canal}",
-        f"Marca: {marca}{(' · ' + modelo) if modelo else ''}",
         f"Nombre: {lead.name or 'sin nombre'}",
         f"Contacto: {lead.phone}",
+        f"Tipo: {tipo}",
     ]
-    if lead.segmento:
-        partes.append(f"Segmento: {lead.segmento}")
-    if lead.necesidad:
-        partes.append(f"Necesidad: {lead.necesidad.replace('_', ' ')}")
-    if lead.plazo_meses:
-        partes.append(f"Plazo: {lead.plazo_meses} meses")
-    if lead.fecha_entrega:
-        partes.append(f"Entrega: {lead.fecha_entrega}")
+    if lead.tipo_propiedad == "oficina":
+        det = []
+        if lead.oficina_m2:
+            det.append(f"{lead.oficina_m2} m²")
+        if lead.oficina_personas:
+            det.append(f"{lead.oficina_personas} personas")
+        if det:
+            partes.append("Oficina: " + ", ".join(det))
+        if lead.tipo_oficina:
+            partes.append("Categoría: " + ("Tipo 1" if lead.tipo_oficina == "tipo1" else "Tipo 2"))
+    elif lead.recamaras is not None:
+        partes.append(f"Recámaras: {lead.recamaras}")
+    if lead.tiempo_renta:
+        t = {"0-6": "6 meses o menos", "6-12": "6 a 12 meses", "12+": "12 meses o más"}
+        partes.append(f"Tiempo: {t.get(lead.tiempo_renta, lead.tiempo_renta)}")
     if lead.zona:
         partes.append(f"Zona: {lead.zona}")
-    if lead.presupuesto:
-        partes.append(f"Presupuesto: {lead.presupuesto}")
     if lead.resumen:
         partes.append(f"Resumen: {lead.resumen}")
     partes.append(f"Score: {lead.score_calif or 0}/100")
@@ -61,9 +66,11 @@ def alertar_admin(lead) -> bool:
         enviado = None
         try:
             from app.services import kapso
+            tipo = {"oficina": "Oficina", "departamento": "Departamento",
+                    "casa": "Casa"}.get(lead.tipo_propiedad or "", "propiedad")
             enviado = kapso.send_template_vars_sync(
                 tel, settings.kapso_tpl_alerta_lead,
-                [lead.name or lead.phone, lead.segmento or "s/segmento", str(lead.score_calif or 0)])
+                [lead.name or lead.phone, tipo, str(lead.score_calif or 0)])
         except Exception as e:  # noqa: BLE001
             logger.warning("[alerta] plantilla a %s falló: %s", tel, e)
         # 2) Fallback a texto libre (si hay ventana de 24h abierta con el admin).

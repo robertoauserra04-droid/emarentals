@@ -2,13 +2,13 @@
   "name": "ema_alerta_lead",
   "language": "es_MX",
   "category": "UTILITY",
-  "descripcion": "Aviso al equipo de EMA Rentals cuando el bot detecta un buen lead. 3 variables: {{1}} nombre/contacto, {{2}} segmento, {{3}} score.",
+  "parameter_format": "POSITIONAL",
   "components": [
     {
       "type": "BODY",
-      "text": "Nuevo lead calificado en EMA Rentals.\nProspecto: {{1}}\nSegmento: {{2}}\nScore: {{3}}/100\n\nEntra al panel para retomar la conversacion con un asesor.",
+      "text": "Nuevo lead calificado en EMA.\nProspecto: {{1}}\nTipo: {{2}}\nScore: {{3}} de 100\n\nIngresa al panel para que un asesor retome la conversacion.",
       "example": {
-        "body_text": [["Juan Perez", "corporativo", "82"]]
+        "body_text": [["Juan Perez", "Oficina", "82"]]
       }
     }
   ]
