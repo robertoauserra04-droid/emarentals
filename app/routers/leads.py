@@ -56,7 +56,8 @@ def pipeline(db: Session = Depends(get_db), user: User = Depends(auth.current_us
         columnas[col].append(_lead_dto(l))
     return {
         "columnas": claves,
-        "fases": {f.clave: {"nombre": f.nombre, "color": f.color} for f in fs},
+        "fases": {f.clave: {"nombre": f.nombre, "color": f.color,
+                            "descripcion": f.descripcion or "", "criterios": f.criterios or ""} for f in fs},
         "leads": columnas,
     }
 

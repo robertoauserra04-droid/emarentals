@@ -114,13 +114,15 @@ class Fase(Base):
     (intermedia) y custom (columna extra manual que agrega el admin)."""
     __tablename__ = "fases"
 
-    id     = Column(Integer, primary_key=True)
-    clave  = Column(String, unique=True, nullable=False)
-    nombre = Column(String, nullable=False)
-    color  = Column(String, default="#8c725d")
-    orden  = Column(Integer, default=0)
-    rol    = Column(String, default="custom")   # entrada|pipeline|calificado|ganado|perdido|custom
-    activa = Column(Boolean, default=True)
+    id         = Column(Integer, primary_key=True)
+    clave      = Column(String, unique=True, nullable=False)
+    nombre     = Column(String, nullable=False)
+    color      = Column(String, default="#8c725d")
+    orden      = Column(Integer, default=0)
+    rol        = Column(String, default="custom")   # entrada|pipeline|lowpri|bueno_*|ganado|perdido|custom
+    activa     = Column(Boolean, default=True)
+    descripcion = Column(Text, nullable=True)   # qué es la fase (editable)
+    criterios   = Column(Text, nullable=True)   # qué debe pasar / tener el lead para estar aquí (editable)
 
 
 class ContextoBot(Base):
