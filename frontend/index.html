@@ -4,75 +4,88 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>EMA Rentals — Panel de leads</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
 <style>
+  /* Paleta EMA Rentals (tomada del sitio): taupe #8c725d, tan #b59f7f, crema #ece5dc, gris #f4f4f4 */
   :root{
-    --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2a2f3a;
-    --txt:#e7e9ee; --muted:#9aa3b2; --brand:#3b82f6; --brand2:#2563eb;
-    --ok:#22c55e; --warn:#f59e0b; --hot:#ef4444;
+    --bg:#f4f4f4; --panel:#ffffff; --panel2:#faf8f5; --line:#e7ded2;
+    --txt:#313131; --muted:#8a817a; --brand:#8c725d; --brand-d:#75604e;
+    --tan:#b59f7f; --cream:#ece5dc; --ok:#5b8f6a; --warn:#c08a3e; --hot:#a9603f;
+    --shadow:0 1px 3px rgba(49,49,49,.06), 0 4px 16px rgba(140,114,93,.06);
   }
   *{box-sizing:border-box}
-  body{margin:0;font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--txt)}
-  a{color:var(--brand)}
-  #login{display:flex;align-items:center;justify-content:center;height:100vh}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:32px;width:340px}
-  .card h1{margin:0 0 4px;font-size:22px}
-  .card p{margin:0 0 20px;color:var(--muted);font-size:13px}
-  input,textarea{width:100%;padding:10px 12px;margin:6px 0;background:var(--panel2);
-    border:1px solid var(--line);border-radius:8px;color:var(--txt);font-size:14px}
-  button{cursor:pointer;border:0;border-radius:8px;padding:10px 14px;background:var(--brand);
-    color:#fff;font-weight:600;font-size:14px}
-  button:hover{background:var(--brand2)}
+  body{margin:0;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--txt)}
+  h1,h2,h3{letter-spacing:.2px}
+  input,textarea{width:100%;padding:11px 13px;margin:6px 0;background:#fff;
+    border:1px solid var(--line);border-radius:9px;color:var(--txt);font-size:14px}
+  input:focus{outline:none;border-color:var(--brand)}
+  button{cursor:pointer;border:0;border-radius:9px;padding:10px 16px;background:var(--brand);
+    color:#fff;font-weight:600;font-size:14px;transition:background .15s}
+  button:hover{background:var(--brand-d)}
   button.ghost{background:transparent;border:1px solid var(--line);color:var(--txt)}
+  button.ghost:hover{background:var(--cream)}
+  .wm{font-weight:800;letter-spacing:2px;text-transform:uppercase}
+  .wm b{color:var(--brand)}
+  /* Login */
+  #login{display:flex;align-items:center;justify-content:center;height:100vh;
+    background:linear-gradient(160deg,#faf8f5 0%,#ece5dc 100%)}
+  .card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:36px;width:350px;box-shadow:var(--shadow)}
+  .card .wm{font-size:24px;margin-bottom:4px}
+  .card p{margin:0 0 22px;color:var(--muted);font-size:13px}
+  /* App */
   #app{display:none;height:100vh;flex-direction:column}
-  header{display:flex;align-items:center;gap:16px;padding:12px 20px;background:var(--panel);
-    border-bottom:1px solid var(--line)}
-  header .logo{font-weight:800;letter-spacing:.5px}
-  header .logo span{color:var(--brand)}
-  nav{display:flex;gap:6px;margin-left:12px}
-  nav button{background:transparent;color:var(--muted);padding:8px 14px}
-  nav button.active{background:var(--panel2);color:var(--txt)}
+  header{display:flex;align-items:center;gap:16px;padding:13px 22px;background:#fff;
+    border-bottom:1px solid var(--line);box-shadow:var(--shadow)}
+  header .wm{font-size:18px}
+  nav{display:flex;gap:4px;margin-left:14px}
+  nav button{background:transparent;color:var(--muted);padding:8px 16px;border-radius:20px}
+  nav button.active{background:var(--cream);color:var(--brand-d)}
   header .sp{flex:1}
   header .who{color:var(--muted);font-size:13px}
-  main{flex:1;overflow:auto;padding:18px 20px}
+  main{flex:1;overflow:auto;padding:20px 22px}
   .muted{color:var(--muted)}
+  /* Kanban */
   .board{display:flex;gap:14px;align-items:flex-start;overflow-x:auto;padding-bottom:10px}
-  .col{background:var(--panel);border:1px solid var(--line);border-radius:12px;min-width:240px;width:240px;flex:0 0 auto}
-  .col h3{margin:0;padding:12px 14px;font-size:13px;text-transform:uppercase;letter-spacing:.5px;
-    color:var(--muted);border-bottom:1px solid var(--line);display:flex;justify-content:space-between}
-  .col .body{padding:10px;display:flex;flex-direction:column;gap:8px;min-height:40px}
-  .lead{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px;cursor:pointer}
-  .lead:hover{border-color:var(--brand)}
-  .lead .n{font-weight:600;font-size:14px}
-  .lead .meta{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.5}
-  .badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:20px;font-weight:700}
-  .b-hot{background:rgba(239,68,68,.15);color:#fca5a5}
-  .b-ch{display:inline-block;font-size:10px;padding:1px 6px;border-radius:5px;background:#2a2f3a;color:#c7cdd8;margin-right:4px}
-  .score{float:right;font-weight:700;font-size:12px}
-  .inbox{display:flex;gap:14px;height:calc(100vh - 120px)}
-  .convlist{width:320px;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px}
-  .conv{padding:12px 14px;border-bottom:1px solid var(--line);cursor:pointer}
+  .col{background:var(--panel2);border:1px solid var(--line);border-radius:14px;min-width:250px;width:250px;flex:0 0 auto}
+  .col h3{margin:0;padding:13px 15px;font-size:12px;text-transform:uppercase;letter-spacing:1px;
+    color:var(--muted);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+  .col h3 span{background:var(--cream);color:var(--brand-d);border-radius:20px;padding:1px 9px;font-size:11px}
+  .col .body{padding:10px;display:flex;flex-direction:column;gap:9px;min-height:40px}
+  .lead{background:#fff;border:1px solid var(--line);border-radius:11px;padding:12px;cursor:pointer;
+    box-shadow:var(--shadow);transition:transform .1s,border-color .15s}
+  .lead:hover{border-color:var(--tan);transform:translateY(-1px)}
+  .lead .n{font-weight:700;font-size:14px}
+  .lead .meta{font-size:12px;color:var(--muted);margin-top:5px;line-height:1.55}
+  .badge{display:inline-block;font-size:9.5px;padding:2px 8px;border-radius:20px;font-weight:700;letter-spacing:.5px}
+  .b-hot{background:#f7e9e2;color:var(--hot)}
+  .b-ch{display:inline-block;font-size:10px;padding:1px 7px;border-radius:5px;background:var(--cream);color:var(--brand-d);margin-right:4px;font-weight:600}
+  .score{float:right;font-weight:800;font-size:13px;color:var(--brand)}
+  /* Bandeja */
+  .inbox{display:flex;gap:14px;height:calc(100vh - 128px)}
+  .convlist{width:330px;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}
+  .conv{padding:13px 15px;border-bottom:1px solid var(--line);cursor:pointer}
   .conv:hover{background:var(--panel2)}
-  .conv.active{background:var(--panel2)}
-  .conv .top{display:flex;justify-content:space-between;font-size:14px}
-  .chat{flex:1;display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:12px}
-  .chat .head{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
-  .msgs{flex:1;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:8px}
-  .bub{max-width:70%;padding:8px 12px;border-radius:12px;font-size:14px;line-height:1.4;white-space:pre-wrap}
-  .bub.in{align-self:flex-start;background:var(--panel2)}
-  .bub.out{align-self:flex-end;background:var(--brand2)}
-  .sendrow{display:flex;gap:8px;padding:12px;border-top:1px solid var(--line)}
+  .conv.active{background:var(--cream)}
+  .conv .top{display:flex;justify-content:space-between;font-size:14px;align-items:center}
+  .chat{flex:1;display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}
+  .chat .head{padding:13px 17px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+  .msgs{flex:1;overflow:auto;padding:18px;display:flex;flex-direction:column;gap:9px;background:var(--panel2)}
+  .bub{max-width:72%;padding:9px 13px;border-radius:13px;font-size:14px;line-height:1.45;white-space:pre-wrap;box-shadow:var(--shadow)}
+  .bub.in{align-self:flex-start;background:#fff;border:1px solid var(--line);border-bottom-left-radius:4px}
+  .bub.out{align-self:flex-end;background:var(--brand);color:#fff;border-bottom-right-radius:4px}
+  .sendrow{display:flex;gap:8px;padding:12px;border-top:1px solid var(--line);background:#fff;border-radius:0 0 14px 14px}
   .sendrow input{margin:0}
-  .pill{font-size:11px;padding:3px 9px;border-radius:20px;background:var(--panel2);border:1px solid var(--line)}
-  .pill.on{color:var(--ok);border-color:var(--ok)}
-  .pill.off{color:var(--warn);border-color:var(--warn)}
-  .err{color:#fca5a5;font-size:13px;min-height:18px}
+  .pill{font-size:11px;padding:3px 10px;border-radius:20px;background:var(--cream);border:1px solid var(--line);color:var(--muted)}
+  .pill.on{color:var(--ok);border-color:var(--ok);background:#eef5f0}
+  .pill.off{color:var(--warn);border-color:var(--warn);background:#f7f0e3}
+  .err{color:var(--hot);font-size:13px;min-height:18px}
 </style>
 </head>
 <body>
 
 <div id="login">
   <div class="card">
-    <h1>EMA <span>Rentals</span></h1>
+    <div class="wm">EMA <b>Rentals</b></div>
     <p>Panel de leads · acceso del equipo</p>
     <input id="email" type="email" placeholder="Correo" autocomplete="username">
     <input id="pass" type="password" placeholder="Contraseña" autocomplete="current-password">
@@ -83,7 +96,7 @@
 
 <div id="app">
   <header>
-    <div class="logo">EMA <span>Rentals</span></div>
+    <div class="wm">EMA <b>Rentals</b></div>
     <nav>
       <button id="tabKanban" class="active" onclick="show('kanban')">Leads</button>
       <button id="tabInbox" onclick="show('inbox')">Bandeja</button>
