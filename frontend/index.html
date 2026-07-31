@@ -304,11 +304,11 @@ async function loadKanban(){
   let html = '<div class="board">';
   for(const est of d.columnas){
     const arr = d.leads[est]||[];
-    const cc = COL_COLOR[est] || "var(--brand)";
-    html += `<div class="col" style="border-top:3px solid ${cc}">
-      <h3 style="color:${cc}"><span style="display:inline-flex;align-items:center;gap:7px">
+    const cc = COL_COLOR[est] || "#8c725d";
+    html += `<div class="col" style="border:1px solid ${cc}59;border-top:3px solid ${cc};background:${cc}12">
+      <h3 style="color:${cc};border-bottom-color:${cc}33"><span style="display:inline-flex;align-items:center;gap:7px">
         <i style="width:9px;height:9px;border-radius:50%;background:${cc};display:inline-block"></i>${ESTADO_LABEL[est]||est}</span>
-      <span style="background:${cc}1f;color:${cc}">${arr.length}</span></h3><div class="body">`;
+      <span style="background:${cc}26;color:${cc}">${arr.length}</span></h3><div class="body">`;
     for(const l of arr){
       LEADS_BY_PHONE[l.phone]=l;
       const si = scoreInfo(l.score_calif);
