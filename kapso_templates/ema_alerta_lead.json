@@ -1,0 +1,15 @@
+{
+  "name": "ema_alerta_lead",
+  "language": "es_MX",
+  "category": "UTILITY",
+  "descripcion": "Aviso al equipo de EMA Rentals cuando el bot detecta un buen lead. 3 variables: {{1}} nombre/contacto, {{2}} segmento, {{3}} score.",
+  "components": [
+    {
+      "type": "BODY",
+      "text": "Nuevo lead calificado en EMA Rentals.\nProspecto: {{1}}\nSegmento: {{2}}\nScore: {{3}}/100\n\nEntra al panel para retomar la conversacion con un asesor.",
+      "example": {
+        "body_text": [["Juan Perez", "corporativo", "82"]]
+      }
+    }
+  ]
+}

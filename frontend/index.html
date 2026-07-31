@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EMA Rentals — Panel de leads</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2a2f3a;
+    --txt:#e7e9ee; --muted:#9aa3b2; --brand:#3b82f6; --brand2:#2563eb;
+    --ok:#22c55e; --warn:#f59e0b; --hot:#ef4444;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--txt)}
+  a{color:var(--brand)}
+  #login{display:flex;align-items:center;justify-content:center;height:100vh}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:32px;width:340px}
+  .card h1{margin:0 0 4px;font-size:22px}
+  .card p{margin:0 0 20px;color:var(--muted);font-size:13px}
+  input,textarea{width:100%;padding:10px 12px;margin:6px 0;background:var(--panel2);
+    border:1px solid var(--line);border-radius:8px;color:var(--txt);font-size:14px}
+  button{cursor:pointer;border:0;border-radius:8px;padding:10px 14px;background:var(--brand);
+    color:#fff;font-weight:600;font-size:14px}
+  button:hover{background:var(--brand2)}
+  button.ghost{background:transparent;border:1px solid var(--line);color:var(--txt)}
+  #app{display:none;height:100vh;flex-direction:column}
+  header{display:flex;align-items:center;gap:16px;padding:12px 20px;background:var(--panel);
+    border-bottom:1px solid var(--line)}
+  header .logo{font-weight:800;letter-spacing:.5px}
+  header .logo span{color:var(--brand)}
+  nav{display:flex;gap:6px;margin-left:12px}
+  nav button{background:transparent;color:var(--muted);padding:8px 14px}
+  nav button.active{background:var(--panel2);color:var(--txt)}
+  header .sp{flex:1}
+  header .who{color:var(--muted);font-size:13px}
+  main{flex:1;overflow:auto;padding:18px 20px}
+  .muted{color:var(--muted)}
+  .board{display:flex;gap:14px;align-items:flex-start;overflow-x:auto;padding-bottom:10px}
+  .col{background:var(--panel);border:1px solid var(--line);border-radius:12px;min-width:240px;width:240px;flex:0 0 auto}
+  .col h3{margin:0;padding:12px 14px;font-size:13px;text-transform:uppercase;letter-spacing:.5px;
+    color:var(--muted);border-bottom:1px solid var(--line);display:flex;justify-content:space-between}
+  .col .body{padding:10px;display:flex;flex-direction:column;gap:8px;min-height:40px}
+  .lead{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px;cursor:pointer}
+  .lead:hover{border-color:var(--brand)}
+  .lead .n{font-weight:600;font-size:14px}
+  .lead .meta{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.5}
+  .badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:20px;font-weight:700}
+  .b-hot{background:rgba(239,68,68,.15);color:#fca5a5}
+  .b-ch{display:inline-block;font-size:10px;padding:1px 6px;border-radius:5px;background:#2a2f3a;color:#c7cdd8;margin-right:4px}
+  .score{float:right;font-weight:700;font-size:12px}
+  .inbox{display:flex;gap:14px;height:calc(100vh - 120px)}
+  .convlist{width:320px;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px}
+  .conv{padding:12px 14px;border-bottom:1px solid var(--line);cursor:pointer}
+  .conv:hover{background:var(--panel2)}
+  .conv.active{background:var(--panel2)}
+  .conv .top{display:flex;justify-content:space-between;font-size:14px}
+  .chat{flex:1;display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:12px}
+  .chat .head{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+  .msgs{flex:1;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:8px}
+  .bub{max-width:70%;padding:8px 12px;border-radius:12px;font-size:14px;line-height:1.4;white-space:pre-wrap}
+  .bub.in{align-self:flex-start;background:var(--panel2)}
+  .bub.out{align-self:flex-end;background:var(--brand2)}
+  .sendrow{display:flex;gap:8px;padding:12px;border-top:1px solid var(--line)}
+  .sendrow input{margin:0}
+  .pill{font-size:11px;padding:3px 9px;border-radius:20px;background:var(--panel2);border:1px solid var(--line)}
+  .pill.on{color:var(--ok);border-color:var(--ok)}
+  .pill.off{color:var(--warn);border-color:var(--warn)}
+  .err{color:#fca5a5;font-size:13px;min-height:18px}
+</style>
+</head>
+<body>
+
+<div id="login">
+  <div class="card">
+    <h1>EMA <span>Rentals</span></h1>
+    <p>Panel de leads · acceso del equipo</p>
+    <input id="email" type="email" placeholder="Correo" autocomplete="username">
+    <input id="pass" type="password" placeholder="Contraseña" autocomplete="current-password">
+    <div class="err" id="loginErr"></div>
+    <button onclick="login()" style="width:100%">Entrar</button>
+  </div>
+</div>
+
+<div id="app">
+  <header>
+    <div class="logo">EMA <span>Rentals</span></div>
+    <nav>
+      <button id="tabKanban" class="active" onclick="show('kanban')">Leads</button>
+      <button id="tabInbox" onclick="show('inbox')">Bandeja</button>
+    </nav>
+    <div class="sp"></div>
+    <div class="who" id="who"></div>
+    <button class="ghost" onclick="logout()">Salir</button>
+  </header>
+  <main>
+    <div id="kanban"></div>
+    <div id="inbox" style="display:none"></div>
+  </main>
+</div>
+
+<script>
+const API = "";
+let TOKEN = localStorage.getItem("ema_token") || "";
+let ROL = "", NOMBRE = "";
+
+function h(t){ return (t||"").replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+async function api(path, opts={}){
+  opts.headers = Object.assign({"Authorization":"Bearer "+TOKEN}, opts.headers||{});
+  const r = await fetch(API+path, opts);
+  if(r.status===401){ logout(); throw new Error("sesión expirada"); }
+  return r;
+}
+
+async function login(){
+  const email = document.getElementById("email").value.trim();
+  const pass = document.getElementById("pass").value;
+  const err = document.getElementById("loginErr"); err.textContent="";
+  const body = new URLSearchParams({username:email, password:pass});
+  const r = await fetch(API+"/api/auth/login", {method:"POST", body});
+  if(!r.ok){ err.textContent = "Correo o contraseña incorrectos"; return; }
+  const d = await r.json();
+  TOKEN = d.access_token; ROL = d.rol; NOMBRE = d.nombre||email;
+  localStorage.setItem("ema_token", TOKEN);
+  boot();
+}
+function logout(){ localStorage.removeItem("ema_token"); TOKEN=""; location.reload(); }
+
+async function boot(){
+  document.getElementById("login").style.display="none";
+  document.getElementById("app").style.display="flex";
+  try{ const me = await (await api("/api/auth/me")).json(); NOMBRE=me.nombre||me.email; ROL=me.rol; }catch(e){}
+  document.getElementById("who").textContent = NOMBRE + " · " + ROL;
+  show('kanban');
+}
+
+function show(tab){
+  document.getElementById("kanban").style.display = tab==='kanban'?'block':'none';
+  document.getElementById("inbox").style.display = tab==='inbox'?'block':'none';
+  document.getElementById("tabKanban").classList.toggle("active", tab==='kanban');
+  document.getElementById("tabInbox").classList.toggle("active", tab==='inbox');
+  if(tab==='kanban') loadKanban(); else loadInbox();
+}
+
+const ESTADO_LABEL = {nuevo:"Nuevo", interesado:"Interesado", calificado:"Calificado",
+  asignado:"Asignado", ganado:"Ganado", perdido:"Perdido"};
+
+async function loadKanban(){
+  const cont = document.getElementById("kanban");
+  cont.innerHTML = '<div class="muted">Cargando…</div>';
+  const d = await (await api("/api/leads/pipeline")).json();
+  let html = '<div class="board">';
+  for(const est of d.columnas){
+    const arr = d.leads[est]||[];
+    html += `<div class="col"><h3>${ESTADO_LABEL[est]||est}<span>${arr.length}</span></h3><div class="body">`;
+    for(const l of arr){
+      const hot = (est==='calificado') ? '<span class="badge b-hot">BUEN LEAD</span> ' : '';
+      const ch = l.source ? `<span class="b-ch">${h(l.source)}</span>` : '';
+      const bits = [l.segmento, l.necesidad && l.necesidad.replace(/_/g,' '),
+        l.plazo_meses && (l.plazo_meses+" meses"), l.zona].filter(Boolean).map(h).join(" · ");
+      html += `<div class="lead" onclick="openLead('${h(l.phone)}')">
+        <span class="score">${l.score_calif||0}</span>
+        <div class="n">${hot}${h(l.name||l.phone)}</div>
+        <div class="meta">${ch}${bits||'<span class="muted">sin datos aún</span>'}
+        ${l.resumen?('<br>'+h(l.resumen)):''}</div></div>`;
+    }
+    html += '</div></div>';
+  }
+  html += '</div>';
+  cont.innerHTML = html;
+}
+
+let CONVS=[], CURRENT=null;
+async function loadInbox(){
+  const cont = document.getElementById("inbox");
+  cont.innerHTML = '<div class="inbox"><div class="convlist" id="convlist"></div>'+
+    '<div class="chat" id="chat"><div class="msgs muted" style="padding:24px">Elige una conversación</div></div></div>';
+  CONVS = await (await api("/api/conversaciones")).json();
+  const list = document.getElementById("convlist");
+  if(!CONVS.length){ list.innerHTML='<div class="muted" style="padding:16px">Sin conversaciones aún</div>'; return; }
+  list.innerHTML = CONVS.map(c=>`<div class="conv" onclick="openConv('${h(c.phone)}')">
+    <div class="top"><b>${h(c.name||c.phone)}</b><span class="b-ch">${h(c.channel)}</span></div>
+    <div class="meta muted" style="font-size:12px">${c.estado?(ESTADO_LABEL[c.estado]||c.estado):''} · ${c.total} msgs</div>
+    </div>`).join("");
+}
+function openLead(phone){ show('inbox'); setTimeout(()=>openConv(phone), 150); }
+
+async function openConv(phone){
+  CURRENT = phone;
+  document.querySelectorAll('.conv').forEach(e=>e.classList.remove('active'));
+  const d = await (await api("/api/conversaciones/"+encodeURIComponent(phone))).json();
+  const botPill = d.bot_active
+    ? '<span class="pill on">bot activo</span>'
+    : '<span class="pill off">humano al mando</span>';
+  let html = `<div class="head"><b>${h(d.name||phone)}</b> <span class="b-ch">${h(d.channel)}</span>
+     ${botPill} <span class="sp" style="flex:1"></span>
+     <button class="ghost" onclick="toggleBot('${h(phone)}')">${d.bot_active?'Tomar chat':'Devolver al bot'}</button></div>`;
+  html += '<div class="msgs" id="msgs">';
+  for(const m of d.mensajes){ html += `<div class="bub ${m.dir}">${h(m.body)}</div>`; }
+  html += '</div>';
+  html += `<div class="sendrow"><input id="sendtxt" placeholder="Escribe una respuesta…"
+     onkeydown="if(event.key==='Enter')sendMsg('${h(phone)}')">
+     <button onclick="sendMsg('${h(phone)}')">Enviar</button></div>`;
+  document.getElementById("chat").innerHTML = html;
+  const m = document.getElementById("msgs"); m.scrollTop = m.scrollHeight;
+}
+async function sendMsg(phone){
+  const inp = document.getElementById("sendtxt"); const txt = inp.value.trim();
+  if(!txt) return; inp.value="";
+  await api("/api/conversaciones/"+encodeURIComponent(phone)+"/enviar",
+    {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({texto:txt})});
+  openConv(phone);
+}
+async function toggleBot(phone){
+  await api("/api/conversaciones/"+encodeURIComponent(phone)+"/bot",
+    {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({})});
+  openConv(phone);
+}
+
+if(TOKEN){ boot(); }
+</script>
+</body>
+</html>
