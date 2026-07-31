@@ -73,6 +73,9 @@ def _bootstrap() -> None:
         _run_alembic_upgrade()
     else:
         Base.metadata.create_all(bind=engine)   # dev/tests SQLite
+    # Crea TABLAS nuevas aunque Alembic ya esté en head (upgrade head = no-op → no re-crea).
+    # checkfirst = idempotente (no toca las que ya existen). _ensure_columns cubre COLUMNAS nuevas.
+    Base.metadata.create_all(bind=engine, checkfirst=True)
     _ensure_columns()   # red de seguridad idempotente
     from app.models.user import User
     from app.services import auth, recovery
