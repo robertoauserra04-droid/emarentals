@@ -75,6 +75,23 @@ def evaluar_prospecto(lead: EmaLead) -> tuple[bool, str | None]:
     return bueno, tipo_of
 
 
+# Claves ESTABLES de las fases (el admin renombra el nombre visible, no la clave).
+FASE_ENTRADA = "nuevo"
+FASE_INTERESADO = "interesado"
+FASE_LOWPRI = "low_priority"
+FASE_BUENO_RES = "residencial_bueno"
+FASE_BUENO_OFI = "oficina_bueno"
+FASE_PERDIDO = "perdido"
+_MANUALES = ("ganado", "perdido")   # etapas que el bot NO pisa (las mueve el asesor)
+
+
+def fase_calificada(lead: EmaLead, bueno: bool) -> str:
+    """A qué columna cae un lead ya completo: buen prospecto → Residencial/Oficina Bueno; si no, Low Priority."""
+    if not bueno:
+        return FASE_LOWPRI
+    return FASE_BUENO_OFI if lead.tipo_propiedad == "oficina" else FASE_BUENO_RES
+
+
 def _completo(lead: EmaLead) -> bool:
     """¿Ya tenemos lo necesario para clasificar (tipo + su dato + tiempo)?"""
     tp = lead.tipo_propiedad
@@ -139,15 +156,15 @@ def apply_capturar_lead(lead: EmaLead, args: dict) -> str:
     lead.es_buen_prospecto = bueno
     lead.tipo_oficina = tipo_of
 
-    # Estado (el código decide; nunca degrada de asignado/ganado/perdido).
+    # Estado (el código decide; nunca pisa lo que el asesor ya movió a ganado/perdido).
     if args.get("motivo_perdida"):
-        lead.estado = "perdido"
-    elif lead.estado not in ("asignado", "ganado", "perdido"):
+        lead.estado = FASE_PERDIDO
+    elif lead.estado not in _MANUALES:
         if _completo(lead):
-            lead.estado = "calificado" if bueno else "interesado"
+            lead.estado = fase_calificada(lead, bueno)   # Residencial/Oficina Bueno o Low Priority
         elif lead.tipo_propiedad or lead.nivel_interes in ("Alto", "Medio"):
-            if lead.estado in (None, "nuevo"):
-                lead.estado = "interesado"
+            if lead.estado in (None, FASE_ENTRADA):
+                lead.estado = FASE_INTERESADO
 
     recompute_score_calif(lead)
     return "prospecto actualizado: " + _texto_prospecto(lead, bueno, tipo_of)

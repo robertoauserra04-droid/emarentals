@@ -41,7 +41,8 @@ def test_buen_lead_dispara_alerta_y_cede(db, monkeypatch):
     handler.handle_inbound(db, phone, "quiero amueblar una oficina completa por 12 meses", channel="whatsapp")
 
     lead = db.query(EmaLead).filter(EmaLead.phone == phone).first()
-    assert lead.estado == "calificado"          # buen lead
+    assert lead.estado == "oficina_bueno"        # buen prospecto de oficina
+    assert lead.es_buen_prospecto is True
     assert lead.alertado_at is not None          # se alertó
     assert alertas == [phone]                     # exactamente una alerta
     assert lead.bot_active is False               # el bot cedió al humano

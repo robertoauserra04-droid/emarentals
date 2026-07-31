@@ -38,26 +38,26 @@ def test_oficina_chica_no_bueno():
 
 # ─────────── apply_capturar_lead decide la etapa ───────────
 
-def test_apply_departamento_bueno_queda_calificado():
+def test_apply_departamento_bueno_va_a_residencial_bueno():
     l = EmaLead(phone="7", estado="nuevo")
     leads.apply_capturar_lead(l, {"tipo_propiedad": "departamento", "recamaras": 2, "tiempo_renta": "12+"})
-    assert l.estado == "calificado"
+    assert l.estado == "residencial_bueno"
     assert l.es_buen_prospecto is True
     assert l.marca == "rentals"
 
 
-def test_apply_oficina_grande_calificado_tipo2():
+def test_apply_oficina_grande_va_a_oficina_bueno_tipo2():
     l = EmaLead(phone="8", estado="nuevo")
     leads.apply_capturar_lead(l, {"tipo_propiedad": "oficina", "oficina_personas": 30, "tiempo_renta": "12+"})
-    assert l.estado == "calificado"
+    assert l.estado == "oficina_bueno"
     assert l.tipo_oficina == "tipo2"
     assert l.marca == "office"
 
 
-def test_apply_departamento_chico_queda_interesado():
+def test_apply_departamento_chico_va_a_low_priority():
     l = EmaLead(phone="9", estado="nuevo")
     leads.apply_capturar_lead(l, {"tipo_propiedad": "departamento", "recamaras": 1, "tiempo_renta": "6-12"})
-    assert l.estado == "interesado"     # completo pero no buen prospecto
+    assert l.estado == "low_priority"   # completo pero no buen prospecto
     assert l.es_buen_prospecto is False
 
 

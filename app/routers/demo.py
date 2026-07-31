@@ -191,8 +191,9 @@ def seed(db: Session = Depends(get_db), user: User = Depends(auth.current_user))
         bueno, tipo_of = leads_svc.evaluar_prospecto(l)
         l.es_buen_prospecto = bueno
         l.tipo_oficina = tipo_of
-        if l.estado in ("interesado", "calificado"):
-            l.estado = "calificado" if bueno else "interesado"
+        # Rutear a la fase correcta (Residencial/Oficina Bueno o Low Priority); dejar nuevo/ganado/perdido.
+        if l.estado not in ("nuevo", "ganado", "perdido"):
+            l.estado = leads_svc.fase_calificada(l, bueno)
         leads_svc.recompute_score_calif(l)
         if estado in ("calificado", "asignado", "ganado"):
             l.escalated = True

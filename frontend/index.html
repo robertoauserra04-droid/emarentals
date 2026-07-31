@@ -215,6 +215,7 @@
     <div id="resumen" style="display:none"></div>
     <div id="metricas" style="display:none"></div>
     <div id="contexto" style="display:none"></div>
+    <div id="fases" style="display:none"></div>
     <div id="usuarios" style="display:none"></div>
   </main>
 </div>
@@ -256,9 +257,10 @@ async function boot(){
   document.getElementById("app").style.display="flex";
   try{ ME = await (await api("/api/auth/me")).json(); }catch(e){ return; }
   try{ SEC_CAT = await (await api("/api/auth/secciones")).json(); }catch(e){ SEC_CAT=[]; }
+  await cargarFases();
   document.getElementById("who").textContent = (ME.nombre||ME.email) + " · " + ME.rol;
   // Nav gateado por secciones
-  const tabs = [["leads","Leads"],["bandeja","Bandeja"],["resumen","Resumen"],["metricas","Métricas"],["contexto","Contexto"],["usuarios","Usuarios"]];
+  const tabs = [["leads","Leads"],["bandeja","Bandeja"],["resumen","Resumen"],["metricas","Métricas"],["contexto","Contexto"],["fases","Fases"],["usuarios","Usuarios"]];
   const nav = document.getElementById("nav"); nav.innerHTML="";
   for(const [sec,label] of tabs){
     if(!puede(sec)) continue;
@@ -295,8 +297,8 @@ async function resetDemo(){
 }
 
 function show(sec){
-  ["kanban","inbox","resumen","metricas","contexto","usuarios"].forEach(id=>document.getElementById(id).style.display="none");
-  const map={leads:"kanban",bandeja:"inbox",resumen:"resumen",metricas:"metricas",contexto:"contexto",usuarios:"usuarios"};
+  ["kanban","inbox","resumen","metricas","contexto","fases","usuarios"].forEach(id=>document.getElementById(id).style.display="none");
+  const map={leads:"kanban",bandeja:"inbox",resumen:"resumen",metricas:"metricas",contexto:"contexto",fases:"fases",usuarios:"usuarios"};
   document.getElementById(map[sec]||"kanban").style.display="block";
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle("active", b.dataset.sec===sec));
   if(sec==='leads') loadKanban();
@@ -304,14 +306,19 @@ function show(sec){
   else if(sec==='resumen') loadResumen();
   else if(sec==='metricas') loadMetricas();
   else if(sec==='contexto') loadContexto();
+  else if(sec==='fases') loadFases();
   else if(sec==='usuarios') loadUsuarios();
 }
 
-const ESTADO_LABEL = {nuevo:"Nuevo", interesado:"Interesado", calificado:"Calificado",
-  asignado:"Asignado", ganado:"Ganado", perdido:"Perdido"};
-// Color por columna del kanban (distinguibles, dentro de la paleta cálida)
-const COL_COLOR = {nuevo:"#8a817a", interesado:"#c08a3e", calificado:"#5b8f6a",
-  asignado:"#6b8ba4", ganado:"#3f7d55", perdido:"#a9603f"};
+// Fases (columnas del kanban) configurables: nombre + color se leen en vivo.
+let FASES = [], FASE_LBL = {}, FASE_COLOR = {};
+const ESTADO_LABEL = new Proxy({}, {get:(_,k)=> FASE_LBL[k] || k});
+const COL_COLOR = new Proxy({}, {get:(_,k)=> FASE_COLOR[k] || "#8c725d"});
+async function cargarFases(){
+  try{ FASES = await (await api("/api/fases")).json(); }catch(e){ FASES = []; }
+  FASE_LBL = {}; FASE_COLOR = {};
+  FASES.forEach(f=>{ FASE_LBL[f.clave]=f.nombre; FASE_COLOR[f.clave]=f.color; });
+}
 const NEC_TXT = {pieza_suelta:"pieza suelta", paquete:"paquete", casa_completa:"casa completa", oficina_completa:"oficina completa"};
 const TIPO_LBL = {oficina:"Oficina", departamento:"Departamento", casa:"Casa"};
 const TIEMPO_LBL = {"0-6":"6 meses o menos", "6-12":"6 a 12 meses", "12+":"12 meses o más"};
@@ -358,6 +365,8 @@ async function loadKanban(){
   const cont = document.getElementById("kanban");
   cont.innerHTML = '<div class="muted">Cargando…</div>';
   const d = await (await api("/api/leads/pipeline")).json();
+  // Refrescar nombres/colores de fase por si el admin los cambió.
+  for(const [k,v] of Object.entries(d.fases||{})){ FASE_LBL[k]=v.nombre; FASE_COLOR[k]=v.color; }
   LEADS_BY_PHONE = {};
   let html = '<div class="board">';
   for(const est of d.columnas){
@@ -773,6 +782,63 @@ function cancelCtx(){
 }
 async function toggleCtx(id){ await api("/api/contexto/"+id+"/toggle",{method:"POST"}); await renderContexto(); }
 async function borrarCtx(id){ if(!confirm("¿Borrar este contexto?"))return; await api("/api/contexto/"+id,{method:"DELETE"}); await renderContexto(); }
+
+// ─────────── Fases del pipeline (configurables) ───────────
+async function loadFases(){
+  const cont = document.getElementById("fases");
+  const admin = ME.rol === "dueno";
+  await cargarFases();
+  const rows = FASES.map((f,i)=>`
+    <div class="ctxcard" style="border-left:6px solid ${f.color}">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <input value="${h(f.nombre)}" id="fn_${f.id}" ${admin?'':'disabled'} style="max-width:220px;margin:0">
+        <input type="color" value="${f.color}" id="fc_${f.id}" ${admin?'':'disabled'} style="width:46px;height:38px;padding:2px;margin:0;border-radius:8px">
+        <span class="muted" style="font-size:11px">${f.rol==='custom'?'columna extra':'base · '+f.rol}</span>
+        <span style="flex:1"></span>
+        ${admin?`<button class="ghost sm" onclick="moverFase(${i},-1)" ${i===0?'disabled':''}>↑</button>
+        <button class="ghost sm" onclick="moverFase(${i},1)" ${i===FASES.length-1?'disabled':''}>↓</button>
+        <button class="sm" onclick="guardarFase(${f.id})">Guardar</button>
+        ${f.editable_borrar?`<button class="danger sm" onclick="borrarFase(${f.id})">Borrar</button>`:''}`:''}
+      </div>
+    </div>`).join("");
+  cont.innerHTML =
+    (admin?`<div class="panelbox"><h3>Agregar columna</h3>
+      <p class="muted" style="margin:-6px 0 10px;font-size:13px">Puedes extender el pipeline con las columnas que necesites.</p>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input id="nueva_fase" placeholder="Nombre de la fase (ej. Recuperación)" style="margin:0">
+        <input type="color" id="nueva_color" value="#8c725d" style="width:46px;height:40px;margin:0;border-radius:8px">
+        <button onclick="agregarFase()">Agregar</button></div></div>`:'')
+    + '<p class="muted" style="margin:0 0 12px">Renombra, recolora y reordena (↑↓) las fases. Las base no se borran (solo se ajustan); las que agregas sí.</p>'
+    + rows;
+}
+function moverFase(i,dir){
+  const j=i+dir; if(j<0||j>=FASES.length) return;
+  const a=FASES.slice(); [a[i],a[j]]=[a[j],a[i]]; FASES=a; guardarOrden();
+}
+async function guardarOrden(){
+  await api("/api/fases/reordenar",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({ids:FASES.map(f=>f.id)})});
+  loadFases();
+}
+async function guardarFase(id){
+  const nombre=document.getElementById("fn_"+id).value.trim();
+  const color=document.getElementById("fc_"+id).value;
+  await api("/api/fases/"+id,{method:"PUT",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({nombre,color})});
+  loadFases();
+}
+async function agregarFase(){
+  const nombre=document.getElementById("nueva_fase").value.trim(); if(!nombre) return;
+  const color=document.getElementById("nueva_color").value;
+  await api("/api/fases",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({nombre,color})});
+  loadFases();
+}
+async function borrarFase(id){
+  if(!confirm("¿Borrar esta columna? Sus leads pasan a la primera fase.")) return;
+  await api("/api/fases/"+id,{method:"DELETE"});
+  loadFases();
+}
 
 // ─────────── Usuarios (crear + asignar secciones) ───────────
 let EDIT_ID = null;

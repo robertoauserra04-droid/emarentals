@@ -17,8 +17,8 @@ from app.services import auth
 
 router = APIRouter(prefix="/api/metrics", tags=["metrics"])
 
-_BUENOS = ("calificado", "asignado", "ganado")
-_ESTADOS = ["nuevo", "interesado", "calificado", "asignado", "ganado", "perdido"]
+_BUENOS = ("residencial_bueno", "oficina_bueno", "ganado")
+_ESTADOS = ["nuevo", "interesado", "low_priority", "residencial_bueno", "oficina_bueno", "ganado", "perdido"]
 _CANALES = ["whatsapp", "instagram", "messenger"]
 _SEGMENTOS = ["residencial", "oficina", "airbnb", "corporativo"]
 

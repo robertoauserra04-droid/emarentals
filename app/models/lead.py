@@ -106,6 +106,23 @@ class EmaLead(Base):
     timezone = Column(String, nullable=True)   # IANA; NULL = default MX
 
 
+class Fase(Base):
+    """Fase del pipeline (columna del Kanban). Configurable: el admin renombra, recolora, reordena
+    y agrega/quita columnas. La `clave` es ESTABLE (el bot y el código la usan); el `nombre` es la
+    etiqueta visible que se puede cambiar sin romper nada. `rol` fija el papel de las fases base:
+    entrada (donde caen los nuevos), calificado (buen prospecto → alerta), ganado, perdido, pipeline
+    (intermedia) y custom (columna extra manual que agrega el admin)."""
+    __tablename__ = "fases"
+
+    id     = Column(Integer, primary_key=True)
+    clave  = Column(String, unique=True, nullable=False)
+    nombre = Column(String, nullable=False)
+    color  = Column(String, default="#8c725d")
+    orden  = Column(Integer, default=0)
+    rol    = Column(String, default="custom")   # entrada|pipeline|calificado|ganado|perdido|custom
+    activa = Column(Boolean, default=True)
+
+
 class ContextoBot(Base):
     """Contexto que alimenta al bot. Lo escribe el equipo desde el panel; el bot lo lee en cada
     turno e incorpora los activos a su system prompt (grounding). Editable en caliente."""

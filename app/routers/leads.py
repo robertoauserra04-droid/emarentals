@@ -8,15 +8,15 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.lead import ESTADOS_VALIDOS, EmaLead
+from app.models.lead import EmaLead
 from app.models.lead_evento import LeadEvento, LeadNota
 from app.models.messaging import ChatMessage, MessageDirection
 from app.models.user import User
+from app.routers.fases import listar_fases
 from app.services import auth, clasificacion, eventos
 
 router = APIRouter(prefix="/api/leads", tags=["leads"])
 
-_ORDEN = ["nuevo", "interesado", "calificado", "asignado", "ganado", "perdido"]
 _PERFILES = ["socio_estrategico", "aliado_operativo", "cliente_premium", "cliente_estandar", "sin_clasificar"]
 
 
@@ -46,11 +46,19 @@ def _lead_dto(l: EmaLead) -> dict:
 
 @router.get("/pipeline")
 def pipeline(db: Session = Depends(get_db), user: User = Depends(auth.current_user)):
-    """Kanban agrupado por etapa."""
-    columnas = {e: [] for e in _ORDEN}
+    """Kanban agrupado por fase (columnas/orden/color vienen de las fases configurables)."""
+    fs = listar_fases(db)
+    claves = [f.clave for f in fs]
+    fallback = claves[0] if claves else "nuevo"
+    columnas = {c: [] for c in claves}
     for l in db.query(EmaLead).order_by(EmaLead.last_message_at.desc()).all():
-        columnas.get(l.estado or "nuevo", columnas["nuevo"]).append(_lead_dto(l))
-    return {"columnas": _ORDEN, "leads": columnas}
+        col = l.estado if l.estado in columnas else fallback
+        columnas[col].append(_lead_dto(l))
+    return {
+        "columnas": claves,
+        "fases": {f.clave: {"nombre": f.nombre, "color": f.color} for f in fs},
+        "leads": columnas,
+    }
 
 
 @router.get("/{lead_id}")
@@ -78,8 +86,9 @@ def mensajes(lead_id: int, db: Session = Depends(get_db), user: User = Depends(a
 def cambiar_estado(lead_id: int, estado: str, db: Session = Depends(get_db),
                    user: User = Depends(auth.current_user)):
     """Cambia la etapa (drag & drop del kanban). Solo informativo (sin finanzas)."""
-    if estado not in ESTADOS_VALIDOS:
-        raise HTTPException(400, "Estado inválido")
+    claves = {f.clave for f in listar_fases(db)}
+    if estado not in claves:
+        raise HTTPException(400, "Fase inválida")
     lead = db.query(EmaLead).filter(EmaLead.id == lead_id).first()
     if not lead:
         raise HTTPException(404, "Lead no encontrado")

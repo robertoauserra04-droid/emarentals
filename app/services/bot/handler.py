@@ -128,11 +128,9 @@ def handle_inbound(db: Session, phone: str, text: str, name: str | None = None,
     if blocked:
         logger.warning("[bot] fact_guard bloqueó una cifra inventada para %s", phone)
 
-    # BUEN LEAD: el bot pidió asesor, o la guarda determinista lo marcó 'calificado'.
-    if actions["alertar"] or lead.estado == "calificado":
+    # BUEN PROSPECTO (cayó en Residencial/Oficina Bueno) o el bot pidió asesor → alerta + cede.
+    if actions["alertar"] or lead.es_buen_prospecto:
         lead.escalated = True
-        if lead.estado in (None, "nuevo", "interesado"):
-            lead.estado = "calificado"
         _alertar_una_vez(db, lead)
         # "Califica y entrega": el bot cede la conversación al asesor humano.
         lead.bot_active = False

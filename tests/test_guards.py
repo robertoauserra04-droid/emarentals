@@ -33,7 +33,7 @@ def test_apply_no_sobrecalifica_sin_datos():
     assert lead.es_buen_prospecto is False
 
 
-def test_apply_casa_califica():
+def test_apply_casa_va_a_residencial_bueno():
     lead = EmaLead(phone="52111", estado="interesado")
     apply_capturar_lead(lead, {"tipo_propiedad": "casa", "tiempo_renta": "0-6"})
-    assert lead.estado == "calificado"   # casa siempre es buen prospecto
+    assert lead.estado == "residencial_bueno"   # casa siempre es buen prospecto

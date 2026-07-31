@@ -13,6 +13,7 @@ SECCIONES: list[tuple[str, str]] = [
     ("resumen",  "Resumen (perfiles)"),
     ("metricas", "Métricas"),
     ("contexto", "Contexto del bot"),
+    ("fases",    "Fases del pipeline"),
     ("usuarios", "Usuarios"),
 ]
 
