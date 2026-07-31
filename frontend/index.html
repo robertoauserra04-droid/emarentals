@@ -175,6 +175,7 @@
     <div class="wm">EMA <b>Rentals</b></div>
     <nav id="nav"></nav>
     <div class="sp"></div>
+    <span id="democtl" style="display:flex;gap:6px"></span>
     <div class="who" id="who"></div>
     <button class="ghost" onclick="logout()">Salir</button>
   </header>
@@ -232,8 +233,33 @@ async function boot(){
     const b=document.createElement("button"); b.textContent=label; b.dataset.sec=sec;
     b.onclick=()=>show(sec); nav.appendChild(b);
   }
+  // Controles de datos demo (solo dueño)
+  if(ME.rol==="dueno"){
+    document.getElementById("democtl").innerHTML =
+      `<button class="ghost sm" onclick="seedDemo()">Sembrar demo</button>
+       <button class="ghost sm" onclick="resetDemo()">Quitar demo</button>`;
+  }
   const first = tabs.map(t=>t[0]).find(puede) || "leads";
   show(first);
+}
+
+function refrescarVista(){
+  const act = document.querySelector('#nav button.active');
+  show(act ? act.dataset.sec : "leads");
+}
+async function seedDemo(){
+  if(!confirm("¿Sembrar 30 leads de demostración? (se reemplazan los demo previos)")) return;
+  const r = await api("/api/demo/seed", {method:"POST"});
+  const d = await r.json();
+  refrescarVista();
+  alert("Listo: "+(d.creados||0)+" leads de demostración creados.");
+}
+async function resetDemo(){
+  if(!confirm("¿Quitar TODOS los datos de demostración?")) return;
+  const r = await api("/api/demo", {method:"DELETE"});
+  const d = await r.json();
+  refrescarVista();
+  alert("Listo: "+(d.borrados||0)+" datos de demostración borrados.");
 }
 
 function show(sec){
