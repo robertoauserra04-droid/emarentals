@@ -276,6 +276,9 @@ function show(sec){
 
 const ESTADO_LABEL = {nuevo:"Nuevo", interesado:"Interesado", calificado:"Calificado",
   asignado:"Asignado", ganado:"Ganado", perdido:"Perdido"};
+// Color por columna del kanban (distinguibles, dentro de la paleta cálida)
+const COL_COLOR = {nuevo:"#8a817a", interesado:"#c08a3e", calificado:"#5b8f6a",
+  asignado:"#6b8ba4", ganado:"#3f7d55", perdido:"#a9603f"};
 const NEC_TXT = {pieza_suelta:"pieza suelta", paquete:"paquete", casa_completa:"casa completa", oficina_completa:"oficina completa"};
 
 // Clasificación del score en etiqueta + color
@@ -301,7 +304,11 @@ async function loadKanban(){
   let html = '<div class="board">';
   for(const est of d.columnas){
     const arr = d.leads[est]||[];
-    html += `<div class="col"><h3>${ESTADO_LABEL[est]||est}<span>${arr.length}</span></h3><div class="body">`;
+    const cc = COL_COLOR[est] || "var(--brand)";
+    html += `<div class="col" style="border-top:3px solid ${cc}">
+      <h3 style="color:${cc}"><span style="display:inline-flex;align-items:center;gap:7px">
+        <i style="width:9px;height:9px;border-radius:50%;background:${cc};display:inline-block"></i>${ESTADO_LABEL[est]||est}</span>
+      <span style="background:${cc}1f;color:${cc}">${arr.length}</span></h3><div class="body">`;
     for(const l of arr){
       LEADS_BY_PHONE[l.phone]=l;
       const si = scoreInfo(l.score_calif);
