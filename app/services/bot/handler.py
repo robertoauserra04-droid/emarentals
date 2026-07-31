@@ -92,7 +92,10 @@ def handle_inbound(db: Session, phone: str, text: str, name: str | None = None,
 
     history = _build_history(db, phone, text)
     es_primer_contacto = lead.message_count == 1
-    system = build_system_prompt(lead, es_primer_contacto=es_primer_contacto)
+    # Contexto vivo que el equipo subió desde el panel (se lee en cada turno).
+    from app.services import contexto
+    grounding = contexto.grounding_activo(db)
+    system = build_system_prompt(lead, es_primer_contacto=es_primer_contacto, grounding=grounding)
 
     actions = {"alertar": False, "motivo": ""}
 

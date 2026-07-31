@@ -10,7 +10,9 @@ routers de leads/visitas — esto es visibilidad de SECCIÓN, complementaria a e
 SECCIONES: list[tuple[str, str]] = [
     ("leads",    "Leads / Pipeline"),
     ("bandeja",  "Bandeja de conversaciones"),
+    ("resumen",  "Resumen (perfiles)"),
     ("metricas", "Métricas"),
+    ("contexto", "Contexto del bot"),
     ("usuarios", "Usuarios"),
 ]
 
@@ -19,7 +21,7 @@ CLAVES_VALIDAS = {c for c, _ in SECCIONES}
 # Presets por rol (lo que se asigna por default al crear; el dueño edita a gusto).
 DEFAULT_SECCIONES = {
     "dueno":       list(CLAVES_VALIDAS),
-    "coordinador": ["leads", "bandeja", "metricas"],
+    "coordinador": ["leads", "bandeja", "resumen", "metricas"],
     "asesor":      ["leads", "bandeja"],
 }
 

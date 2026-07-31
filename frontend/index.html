@@ -158,6 +158,31 @@
   .spark .d:hover{background:var(--brand)}
   .spark .d > i{position:absolute;bottom:0;left:0;right:0;background:var(--brand);border-radius:3px 3px 0 0}
   .sparklbls{display:flex;justify-content:space-between;color:var(--muted);font-size:11px;margin-top:6px}
+  /* Perfil estratégico */
+  .perfilchip{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 9px;border-radius:20px}
+  .pform{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+  .pform label{font-size:11px;color:var(--muted);font-weight:600}
+  .pform input,.pform select{margin:3px 0 0}
+  .opt{display:flex;gap:6px}
+  .opt button{flex:1;background:transparent;border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:9px;font-size:12.5px;font-weight:600}
+  .opt button.sel{background:var(--brand);color:#fff;border-color:var(--brand)}
+  /* Cuadrante 2x2 */
+  .cuad{display:grid;grid-template-columns:130px 1fr 1fr;gap:10px;align-items:stretch}
+  .cuad .axis{display:flex;align-items:center;justify-content:center;text-align:center;font-size:11px;
+    color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+  .cuad .axis.y{writing-mode:vertical-rl;transform:rotate(180deg)}
+  .quad{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:var(--shadow);min-height:120px;border-top:4px solid}
+  .quad .qh{font-weight:800;font-size:15px;display:flex;align-items:center;gap:7px}
+  .quad .qc{font-size:32px;font-weight:800;margin:8px 0 2px}
+  .quad .qd{color:var(--muted);font-size:12px}
+  .quad .qhrs{font-size:12px;font-weight:700;margin-top:6px}
+  /* Contexto */
+  .ctxcard{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow);margin-bottom:10px}
+  .ctxcard .ct{font-weight:700;display:flex;align-items:center;gap:8px}
+  .ctxcard .cc{color:var(--txt);font-size:13.5px;margin-top:6px;line-height:1.5;white-space:pre-wrap}
+  .ctxcard .cacts{display:flex;gap:6px;margin-top:10px}
+  .dot-on{width:8px;height:8px;border-radius:50%;background:var(--ok);display:inline-block}
+  .dot-off{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block}
 </style>
 </head>
 <body>
@@ -185,7 +210,9 @@
   <main>
     <div id="kanban"></div>
     <div id="inbox" style="display:none"></div>
+    <div id="resumen" style="display:none"></div>
     <div id="metricas" style="display:none"></div>
+    <div id="contexto" style="display:none"></div>
     <div id="usuarios" style="display:none"></div>
   </main>
 </div>
@@ -229,7 +256,7 @@ async function boot(){
   try{ SEC_CAT = await (await api("/api/auth/secciones")).json(); }catch(e){ SEC_CAT=[]; }
   document.getElementById("who").textContent = (ME.nombre||ME.email) + " · " + ME.rol;
   // Nav gateado por secciones
-  const tabs = [["leads","Leads"],["bandeja","Bandeja"],["metricas","Métricas"],["usuarios","Usuarios"]];
+  const tabs = [["leads","Leads"],["bandeja","Bandeja"],["resumen","Resumen"],["metricas","Métricas"],["contexto","Contexto"],["usuarios","Usuarios"]];
   const nav = document.getElementById("nav"); nav.innerHTML="";
   for(const [sec,label] of tabs){
     if(!puede(sec)) continue;
@@ -266,15 +293,16 @@ async function resetDemo(){
 }
 
 function show(sec){
-  document.getElementById("kanban").style.display  = sec==='leads'?'block':'none';
-  document.getElementById("inbox").style.display   = sec==='bandeja'?'block':'none';
-  document.getElementById("metricas").style.display= sec==='metricas'?'block':'none';
-  document.getElementById("usuarios").style.display= sec==='usuarios'?'block':'none';
+  ["kanban","inbox","resumen","metricas","contexto","usuarios"].forEach(id=>document.getElementById(id).style.display="none");
+  const map={leads:"kanban",bandeja:"inbox",resumen:"resumen",metricas:"metricas",contexto:"contexto",usuarios:"usuarios"};
+  document.getElementById(map[sec]||"kanban").style.display="block";
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle("active", b.dataset.sec===sec));
   if(sec==='leads') loadKanban();
   else if(sec==='bandeja') loadInbox();
+  else if(sec==='resumen') loadResumen();
   else if(sec==='metricas') loadMetricas();
-  else loadUsuarios();
+  else if(sec==='contexto') loadContexto();
+  else if(sec==='usuarios') loadUsuarios();
 }
 
 const ESTADO_LABEL = {nuevo:"Nuevo", interesado:"Interesado", calificado:"Calificado",
@@ -285,6 +313,13 @@ const COL_COLOR = {nuevo:"#8a817a", interesado:"#c08a3e", calificado:"#5b8f6a",
 const NEC_TXT = {pieza_suelta:"pieza suelta", paquete:"paquete", casa_completa:"casa completa", oficina_completa:"oficina completa"};
 const BRAND_LBL = {rentals:"EMA Rentals", office:"EMA Office"};
 const MODELO_LBL = {renta:"Renta", venta:"Venta"};
+const PERFIL = {
+  socio_estrategico:{lbl:"Socio Estratégico", emoji:"🟢", color:"#3f7d55"},
+  aliado_operativo: {lbl:"Aliado Operativo",  emoji:"🔵", color:"#6b8ba4"},
+  cliente_premium:  {lbl:"Cliente Premium",   emoji:"🟡", color:"#c8a13e"},
+  cliente_estandar: {lbl:"Cliente Estándar",  emoji:"⚪", color:"#9a9188"},
+  sin_clasificar:   {lbl:"Sin clasificar",    emoji:"⬜", color:"#c3bcb3"},
+};
 
 // Clasificación del score en etiqueta + color
 function scoreInfo(s){
@@ -323,9 +358,13 @@ async function loadKanban(){
       const ch = l.source ? `<span class="b-ch">${h(l.source)}</span>` : '';
       const bits = [l.segmento, l.necesidad && NEC_TXT[l.necesidad], l.plazo_meses && (l.plazo_meses+" meses"), l.zona]
         .filter(Boolean).map(h).join(" · ");
+      const pf = PERFIL[l.perfil||'sin_clasificar'];
+      const perfilTag = (l.perfil && l.perfil!=='sin_clasificar')
+        ? `<div style="margin-top:7px"><span class="perfilchip" style="background:${pf.color}22;color:${pf.color};border:1px solid ${pf.color}55">${pf.emoji} ${pf.lbl}${l.horas_estimadas?(' · '+l.horas_estimadas+'h'):''}</span></div>` : '';
       html += `<div class="lead" onclick="openPerfil('${h(l.phone)}')">
         <div class="n">${hot}${h(l.name||l.phone)}</div>
         <div class="meta">${brand}${ch}<br>${bits||'<span class="muted">sin datos aún</span>'}</div>
+        ${perfilTag}
         <span class="scorepill ${si.cls}"><span class="num">${l.score_calif||0}</span> · ${si.lbl}</span></div>`;
     }
     html += '</div></div>';
@@ -335,9 +374,11 @@ async function loadKanban(){
 }
 
 // ─────────── Perfil del lead (drawer) ───────────
+let PF_USO = null;
 async function openPerfil(phone){
   const l = LEADS_BY_PHONE[phone];
   if(!l) return;
+  PF_USO = l.uso || null;
   const si = scoreInfo(l.score_calif);
   const razones = razonesLead(l);
   const exp = (l.estado==='calificado' || l.estado==='asignado' || l.estado==='ganado')
@@ -382,6 +423,30 @@ async function openPerfil(phone){
         ${kvRow("Alertado al equipo", l.alertado ? "Sí" : "No")}
       </div>
 
+      <div class="sec-lbl">Perfil estratégico</div>
+      <div class="kv" style="padding:16px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+          <span class="perfilchip" style="background:${(PERFIL[l.perfil||'sin_clasificar']).color}22;color:${(PERFIL[l.perfil||'sin_clasificar']).color};border:1px solid ${(PERFIL[l.perfil||'sin_clasificar']).color}55">
+            ${(PERFIL[l.perfil||'sin_clasificar']).emoji} ${(PERFIL[l.perfil||'sin_clasificar']).lbl}</span>
+          <span class="muted" style="font-size:12px">${l.horas_estimadas?(l.horas_estimadas+' h/sem estimadas'):'sin clasificar'}</span>
+        </div>
+        <div class="pform">
+          <div style="grid-column:1/3"><label>¿Cómo usará los muebles?</label>
+            <div class="opt" id="pf_uso">
+              <button data-v="reventa" class="${l.uso==='reventa'?'sel':''}" onclick="pfPick('reventa')">Para sus clientes / unidades</button>
+              <button data-v="propio" class="${l.uso==='propio'?'sel':''}" onclick="pfPick('propio')">Uso propio</button>
+            </div></div>
+          <div><label>Ticket mensual (MXN)</label><input type="number" id="pf_ticket" value="${l.ticket_mensual||''}" placeholder="0"></div>
+          <div><label>Potencial de escala (unidades)</label>
+            <select id="pf_escala">${['1-3','4-6','7-15','+15'].map(o=>`<option ${l.potencial_escala===o?'selected':''}>${o}</option>`).join('')}</select></div>
+          <div><label>Urgencia de cierre</label>
+            <select id="pf_urg">${[['ya','Cerrar ya'],['media','Media'],['baja','Baja']].map(o=>`<option value="${o[0]}" ${l.urgencia_cierre===o[0]?'selected':''}>${o[1]}</option>`).join('')}</select></div>
+          <div><label>Estructura</label>
+            <select id="pf_estruct">${[['persona_fisica','Persona física'],['empresa','Empresa / RFC']].map(o=>`<option value="${o[0]}" ${l.estructura===o[0]?'selected':''}>${o[1]}</option>`).join('')}</select></div>
+        </div>
+        <button class="sm" style="margin-top:12px" onclick="guardarPerfil(${l.id})">Calcular y guardar</button>
+      </div>
+
       ${l.resumen ? `<div class="sec-lbl">Resumen</div><div class="kv"><div class="row"><span class="v" style="text-align:left;font-weight:400">${h(l.resumen)}</span></div></div>` : ""}
 
       <div class="sec-lbl">Conversación</div>
@@ -403,6 +468,23 @@ async function openPerfil(phone){
 }
 function closeDrawer(){ document.getElementById("overlay").classList.remove("open"); }
 function irAlChat(phone){ closeDrawer(); show('bandeja'); setTimeout(()=>openConv(phone), 120); }
+function pfPick(val){
+  PF_USO = val;
+  document.querySelectorAll('#pf_uso button').forEach(b=>b.classList.toggle('sel', b.dataset.v===val));
+}
+async function guardarPerfil(id){
+  const body = {
+    ticket_mensual: parseInt(document.getElementById("pf_ticket").value)||0,
+    uso: PF_USO,
+    potencial_escala: document.getElementById("pf_escala").value,
+    urgencia_cierre: document.getElementById("pf_urg").value,
+    estructura: document.getElementById("pf_estruct").value,
+  };
+  const r = await api("/api/leads/"+id+"/perfil", {method:"PUT",
+    headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});
+  const d = await r.json();
+  if(d.phone){ LEADS_BY_PHONE[d.phone] = d; openPerfil(d.phone); }
+}
 
 // ─────────── Bandeja ───────────
 let CONVS=[];
@@ -561,6 +643,118 @@ function renderMetricas(d){
       </div>
     </div>`;
 }
+
+// ─────────── Resumen: cuadrante 2×2 de perfiles ───────────
+async function loadResumen(){
+  const cont = document.getElementById("resumen");
+  cont.innerHTML = '<div class="muted">Cargando…</div>';
+  const d = await (await api("/api/leads/resumen/cuadrante")).json();
+  const P = d.perfiles;
+  const esAdmin = ME.rol==="dueno";
+  const quad = (key, desc) => {
+    const p = P[key];
+    return `<div class="quad" style="border-top-color:${p.color}">
+      <div class="qh" style="color:${p.color}">${p.emoji} ${p.label}</div>
+      <div class="qc" style="color:${p.color}">${p.count}</div>
+      <div class="qd">${desc}</div>
+      <div class="qhrs" style="color:${p.color}">${p.horas} h/sem en total</div>
+    </div>`;
+  };
+  cont.innerHTML = `
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:16px">
+      <div class="kpi" style="margin:0"><div class="v">${d.total}</div><div class="k">Proyectos</div></div>
+      <div class="kpi" style="margin:0"><div class="v">${d.horas_totales}</div><div class="k">Horas/semana totales</div></div>
+      <div class="panelbox" style="margin:0;padding:14px 16px;max-width:none;display:flex;align-items:center;gap:10px">
+        <label class="muted" style="font-size:12px">Umbral de ticket alto (MXN/mes)</label>
+        <input type="number" id="umbral" value="${d.umbral}" style="width:120px;margin:0" ${esAdmin?'':'disabled'}>
+        ${esAdmin?'<button class="sm" onclick="guardarUmbral()">Guardar</button>':''}
+      </div>
+    </div>
+    <div class="cuad">
+      <div class="axis"></div>
+      <div class="axis">Bajo ticket (&lt; ${d.umbral.toLocaleString('es-MX')})</div>
+      <div class="axis">Alto ticket (≥ ${d.umbral.toLocaleString('es-MX')})</div>
+      <div class="axis y">Para sus clientes / unidades</div>
+      ${quad("aliado_operativo","Socio recurrente de flujo predecible.")}
+      ${quad("socio_estrategico","Aliado de alto valor, máximo crecimiento.")}
+      <div class="axis y">Uso propio</div>
+      ${quad("cliente_estandar","Usuario final de ticket bajo. Cierre rápido.")}
+      ${quad("cliente_premium","Usuario final de alto ticket. Retención y upsell.")}
+    </div>
+    ${P.sin_clasificar.count?`<div class="muted" style="margin-top:14px">⬜ Sin clasificar: ${P.sin_clasificar.count} (falta capturar ticket y uso en su perfil).</div>`:''}`;
+}
+async function guardarUmbral(){
+  const v = parseInt(document.getElementById("umbral").value)||0;
+  await api("/api/config/umbral", {method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ticket_umbral:v})});
+  loadResumen();
+}
+
+// ─────────── Contexto del bot ───────────
+let CTX_EDIT = null;
+async function loadContexto(){
+  const cont = document.getElementById("contexto");
+  const admin = ME.rol==="dueno";
+  const form = admin ? `<div class="panelbox" id="ctxform">
+      <h3 id="ctxTitle">Nuevo contexto</h3>
+      <p class="muted" style="margin:-6px 0 12px;font-size:13px">Escribe información que el bot debe conocer (cobertura, precios generales, políticas, promociones, tono). El bot la usa en la próxima respuesta.</p>
+      <input id="ctx_titulo" placeholder="Título (ej. Política de depósito)">
+      <textarea id="ctx_cont" rows="4" placeholder="Contenido que el bot debe saber…"></textarea>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <button onclick="guardarContexto()" id="ctx_save">Agregar contexto</button>
+        <button class="ghost" id="ctx_cancel" style="display:none" onclick="cancelCtx()">Cancelar</button>
+      </div></div>` : '';
+  cont.innerHTML = form + '<div id="ctxlist"><div class="muted">Cargando…</div></div>';
+  await renderContexto();
+}
+async function renderContexto(){
+  const admin = ME.rol==="dueno";
+  const filas = await (await api("/api/contexto")).json();
+  const list = document.getElementById("ctxlist");
+  if(!filas.length){ list.innerHTML='<div class="muted">Aún no hay contexto. Agrega el primero para alimentar al bot.</div>'; return; }
+  list.innerHTML = filas.map(c=>`<div class="ctxcard">
+    <div class="ct"><span class="${c.activo?'dot-on':'dot-off'}"></span>${h(c.titulo)}
+      <span class="muted" style="font-weight:400;font-size:11.5px">${c.activo?'activo':'inactivo'}</span></div>
+    <div class="cc">${h(c.contenido)}</div>
+    ${admin?`<div class="cacts">
+      <button class="ghost sm" onclick='editCtx(${c.id})'>Editar</button>
+      <button class="ghost sm" onclick='toggleCtx(${c.id})'>${c.activo?'Desactivar':'Activar'}</button>
+      <button class="danger sm" onclick='borrarCtx(${c.id})'>Borrar</button>
+    </div>`:''}
+  </div>`).join("");
+  window._CTX = filas;
+}
+async function guardarContexto(){
+  const titulo=document.getElementById("ctx_titulo").value.trim();
+  const contenido=document.getElementById("ctx_cont").value.trim();
+  if(!titulo||!contenido){ alert("Título y contenido son obligatorios"); return; }
+  if(CTX_EDIT){
+    await api("/api/contexto/"+CTX_EDIT,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({titulo,contenido,activo:true})});
+    cancelCtx();
+  }else{
+    await api("/api/contexto",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({titulo,contenido,activo:true})});
+    document.getElementById("ctx_titulo").value=""; document.getElementById("ctx_cont").value="";
+  }
+  await renderContexto();
+}
+function editCtx(id){
+  const c=(window._CTX||[]).find(x=>x.id===id); if(!c) return;
+  CTX_EDIT=id;
+  document.getElementById("ctxTitle").textContent="Editar contexto";
+  document.getElementById("ctx_titulo").value=c.titulo;
+  document.getElementById("ctx_cont").value=c.contenido;
+  document.getElementById("ctx_save").textContent="Guardar cambios";
+  document.getElementById("ctx_cancel").style.display="inline-block";
+  document.getElementById("ctxform").scrollIntoView({behavior:"smooth"});
+}
+function cancelCtx(){
+  CTX_EDIT=null;
+  document.getElementById("ctxTitle").textContent="Nuevo contexto";
+  document.getElementById("ctx_titulo").value=""; document.getElementById("ctx_cont").value="";
+  document.getElementById("ctx_save").textContent="Agregar contexto";
+  document.getElementById("ctx_cancel").style.display="none";
+}
+async function toggleCtx(id){ await api("/api/contexto/"+id+"/toggle",{method:"POST"}); await renderContexto(); }
+async function borrarCtx(id){ if(!confirm("¿Borrar este contexto?"))return; await api("/api/contexto/"+id,{method:"DELETE"}); await renderContexto(); }
 
 // ─────────── Usuarios (crear + asignar secciones) ───────────
 let EDIT_ID = null;

@@ -123,7 +123,7 @@ def apply_capturar_lead(lead: EmaLead, args: dict) -> str:
     if args.get("nombre") and not lead.name:
         lead.name = args["nombre"].strip()
 
-    for campo in ("marca", "modelo", "segmento", "necesidad", "fecha_entrega", "zona", "presupuesto",
+    for campo in ("marca", "modelo", "uso", "segmento", "necesidad", "fecha_entrega", "zona", "presupuesto",
                   "nivel_interes", "que_pregunto", "resumen", "motivo_perdida"):
         val = args.get(campo)
         if val not in (None, ""):

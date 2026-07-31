@@ -11,10 +11,10 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.lead import EmaLead
+from app.models.lead import ContextoBot, EmaLead
 from app.models.messaging import ChatMessage, Conversation, MessageDirection
 from app.models.user import User
-from app.services import auth
+from app.services import auth, clasificacion
 from app.services.bot import leads as leads_svc
 
 router = APIRouter(prefix="/api/demo", tags=["demo"])
@@ -140,13 +140,32 @@ def seed(db: Session = Depends(get_db), user: User = Depends(auth.current_user))
         else:
             marca, modelo = "rentals", "renta"
         plazo_l = None if modelo == "venta" else plazo   # una venta no lleva plazo en meses
+        # Perfil estratégico (solo si ya hay datos; los 'nuevo' quedan sin clasificar).
+        ticket = uso = escala = urg = estruct = None
+        if seg and estado != "nuevo":
+            uso = "reventa" if seg == "airbnb" else "propio"
+            if seg == "airbnb":
+                # casa completa = proyecto grande (socio); paquete = más chico (aliado)
+                ticket = 28000 if nec == "casa_completa" else 14000
+            elif seg == "corporativo":
+                ticket = 48000                                # premium (propio, alto)
+            elif seg == "oficina":
+                ticket = 24000 if i % 2 == 0 else 9000        # premium / estándar
+            else:  # residencial
+                ticket = 14000 if i % 3 == 0 else 6000        # estándar (propio, bajo)
+            escala = {"corporativo": "+15", "airbnb": "7-15", "oficina": "4-6"}.get(seg, "1-3")
+            urg = {"ya": "ya", "1-4sem": "media"}.get(fecha or "", "baja")
+            estruct = "empresa" if seg in ("oficina", "corporativo") else "persona_fisica"
         l = EmaLead(
             phone=phone, name=nombre, source=canal, marca=marca, modelo=modelo,
             segmento=seg, necesidad=nec, plazo_meses=plazo_l, fecha_entrega=fecha, zona=zona,
             estado=estado, nivel_interes=nivel, presupuesto=presu, resumen=resumen, es_demo=True,
+            ticket_mensual=ticket, uso=uso, potencial_escala=escala, urgencia_cierre=urg,
+            estructura=estruct,
             message_count=0, bot_active=(estado not in ("asignado", "ganado")),
             created_at=creado, last_message_at=creado + timedelta(hours=2),
         )
+        clasificacion.clasificar(db, l)   # calcula perfil + horas
         if estado in ("calificado", "asignado", "ganado"):
             l.escalated = True
             l.alertado_at = ahora - timedelta(hours=i * 3, minutes=5)
@@ -165,6 +184,17 @@ def seed(db: Session = Depends(get_db), user: User = Depends(auth.current_user))
                                created_at=t0 + timedelta(minutes=j * 2)))
         l.message_count = sum(1 for d, _ in conv if d == _IN)
         creados += 1
+
+    # Contextos de ejemplo para el bot (solo si aún no hay ninguno).
+    if db.query(ContextoBot).count() == 0:
+        db.add(ContextoBot(titulo="Cobertura y entrega",
+                           contenido="Entregamos e instalamos en Monterrey sin costo; al resto de "
+                                     "México se cotiza el envío. La instalación siempre va incluida.",
+                           activo=True))
+        db.add(ContextoBot(titulo="Plazos y depósito",
+                           contenido="Los planes de renta son de 3 a 24 meses. El primer pago incluye "
+                                     "el primer mes más un depósito en garantía que se devuelve al final.",
+                           activo=True))
     db.commit()
     return {"ok": True, "creados": creados}
 

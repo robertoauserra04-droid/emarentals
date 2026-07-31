@@ -12,11 +12,12 @@ from app.models.lead import ESTADOS_VALIDOS, EmaLead
 from app.models.lead_evento import LeadEvento, LeadNota
 from app.models.messaging import ChatMessage, MessageDirection
 from app.models.user import User
-from app.services import auth, eventos
+from app.services import auth, clasificacion, eventos
 
 router = APIRouter(prefix="/api/leads", tags=["leads"])
 
 _ORDEN = ["nuevo", "interesado", "calificado", "asignado", "ganado", "perdido"]
+_PERFILES = ["socio_estrategico", "aliado_operativo", "cliente_premium", "cliente_estandar", "sin_clasificar"]
 
 
 def _lead_dto(l: EmaLead) -> dict:
@@ -29,6 +30,11 @@ def _lead_dto(l: EmaLead) -> dict:
         "resumen": l.resumen, "que_pregunto": l.que_pregunto, "source": l.source,
         "message_count": l.message_count, "monto_cierre": l.monto_cierre,
         "alertado": l.alertado_at is not None,
+        # Perfil estratégico (cuadrante)
+        "perfil": l.perfil or "sin_clasificar", "horas_estimadas": l.horas_estimadas or 0,
+        "ticket_mensual": l.ticket_mensual, "uso": l.uso,
+        "potencial_escala": l.potencial_escala, "urgencia_cierre": l.urgencia_cierre,
+        "estructura": l.estructura,
         "last_message_at": l.last_message_at.isoformat() if l.last_message_at else None,
     }
 
@@ -81,6 +87,57 @@ def cambiar_estado(lead_id: int, estado: str, db: Session = Depends(get_db),
         eventos.registrar(db, lead.id, "etapa", f"Etapa: {prev or 'nuevo'} → {estado}", autor)
     db.commit()
     return {"ok": True, "estado": estado}
+
+
+# ─────────── Perfil estratégico (cuadrante 2×2) ───────────
+
+class PerfilIn(BaseModel):
+    ticket_mensual: int | None = None
+    uso: str | None = None                # reventa | propio
+    potencial_escala: str | None = None   # 1-3 | 4-6 | 7-15 | +15
+    urgencia_cierre: str | None = None    # ya | media | baja
+    estructura: str | None = None         # persona_fisica | empresa
+
+
+@router.put("/{lead_id}/perfil")
+def guardar_perfil(lead_id: int, data: PerfilIn, db: Session = Depends(get_db),
+                   user: User = Depends(auth.current_user)):
+    """Guarda las variables del perfil y recalcula (perfil + horas) al momento."""
+    lead = db.query(EmaLead).filter(EmaLead.id == lead_id).first()
+    if not lead:
+        raise HTTPException(404, "Lead no encontrado")
+    for campo in ("ticket_mensual", "uso", "potencial_escala", "urgencia_cierre", "estructura"):
+        val = getattr(data, campo)
+        if val is not None:
+            setattr(lead, campo, val)
+    perfil, horas = clasificacion.clasificar(db, lead)
+    db.commit()
+    return {"ok": True, "perfil": perfil, "horas_estimadas": horas, **_lead_dto(lead)}
+
+
+@router.get("/resumen/cuadrante")
+def resumen_cuadrante(db: Session = Depends(get_db), user: User = Depends(auth.current_user)):
+    """Vista Resumen: cuadrante 2×2 con conteos, horas totales y el umbral vigente."""
+    leads = db.query(EmaLead).all()
+    por_perfil = {p: {"count": 0, "horas": 0, "leads": []} for p in _PERFILES}
+    for l in leads:
+        p = l.perfil or "sin_clasificar"
+        if p not in por_perfil:
+            p = "sin_clasificar"
+        por_perfil[p]["count"] += 1
+        por_perfil[p]["horas"] += (l.horas_estimadas or 0)
+        por_perfil[p]["leads"].append(_lead_dto(l))
+    return {
+        "umbral": int(clasificacion.get_umbral(db)),
+        "perfiles": {p: {"label": clasificacion.PERFILES[p]["label"],
+                         "emoji": clasificacion.PERFILES[p]["emoji"],
+                         "color": clasificacion.PERFILES[p]["color"],
+                         "count": por_perfil[p]["count"],
+                         "horas": por_perfil[p]["horas"],
+                         "leads": por_perfil[p]["leads"]} for p in _PERFILES},
+        "horas_totales": sum(v["horas"] for v in por_perfil.values()),
+        "total": len(leads),
+    }
 
 
 # ─────────── Bitácora (eventos) + notas del lead ───────────

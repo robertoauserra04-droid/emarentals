@@ -47,6 +47,13 @@ CAPTURAR_LEAD_TOOL = {
                     "enum": ["renta", "venta"],
                     "description": "Si quiere RENTAR o COMPRAR. Rentals siempre es renta; Office puede ser cualquiera.",
                 },
+                "uso": {
+                    "type": "string",
+                    "enum": ["reventa", "propio"],
+                    "description": "Si pondrá los muebles frente a SUS propios clientes o unidades "
+                                   "(reventa: hotelero/Airbnb, desarrollador, coworking, staging) o si los "
+                                   "usará él mismo (propio). Solo si queda claro en la charla.",
+                },
                 "segmento": {
                     "type": "string",
                     "enum": ["residencial", "oficina", "airbnb", "corporativo"],

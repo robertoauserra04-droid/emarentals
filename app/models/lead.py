@@ -58,6 +58,15 @@ class EmaLead(Base):
     zona          = Column(String, nullable=True)   # Monterrey / ciudad-estado (texto libre)
     presupuesto   = Column(String, nullable=True)   # rango declarado (texto; sin parseo duro en v1)
 
+    # --- Perfil estratégico (cuadrante 2×2 Ticket × Uso) — se calcula solo al guardar ---
+    ticket_mensual   = Column(Integer, nullable=True)   # MXN/mes (0 si es venta puntual sin mensualidad)
+    uso              = Column(String, nullable=True)    # reventa (para sus clientes/unidades) / propio
+    potencial_escala = Column(String, nullable=True)    # 1-3 / 4-6 / 7-15 / +15 (unidades potenciales)
+    urgencia_cierre  = Column(String, nullable=True)    # ya / media / baja
+    estructura       = Column(String, nullable=True)    # persona_fisica / empresa (informativo)
+    perfil           = Column(String, nullable=True)    # socio_estrategico / aliado_operativo / cliente_premium / cliente_estandar / sin_clasificar
+    horas_estimadas  = Column(Integer, nullable=True)   # horas/semana estimadas
+
     # Alerta al admin: se dispara UNA sola vez al calificar (idempotencia).
     alertado_at   = Column(DateTime(timezone=True), nullable=True)
 
@@ -86,6 +95,19 @@ class EmaLead(Base):
     reactivation_count   = Column(Integer, default=0)
 
     timezone = Column(String, nullable=True)   # IANA; NULL = default MX
+
+
+class ContextoBot(Base):
+    """Contexto que alimenta al bot. Lo escribe el equipo desde el panel; el bot lo lee en cada
+    turno e incorpora los activos a su system prompt (grounding). Editable en caliente."""
+    __tablename__ = "contexto_bot"
+
+    id         = Column(Integer, primary_key=True)
+    titulo     = Column(String, nullable=False)
+    contenido  = Column(Text, nullable=False)
+    activo     = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
 class RecoveryEvent(Base):

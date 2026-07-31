@@ -12,8 +12,9 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings, validar_config
 from app.database import Base, SessionLocal, engine
-from app.routers import (auth as auth_router, conversaciones, demo, leads, metrics,
-                         recovery as recovery_router, sinch_webhook, usuarios, webhook)
+from app.routers import (auth as auth_router, config as config_router, contexto, conversaciones,
+                         demo, leads, metrics, recovery as recovery_router, sinch_webhook,
+                         usuarios, webhook)
 
 logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)
@@ -43,6 +44,8 @@ app.include_router(leads.router)            # kanban de leads
 app.include_router(auth_router.router)
 app.include_router(usuarios.router)
 app.include_router(metrics.router)          # métricas de leads con filtro por fechas
+app.include_router(config_router.router)    # config global (umbral del cuadrante)
+app.include_router(contexto.router)         # contexto vivo del bot
 app.include_router(demo.router)             # datos de demostración (sembrar/borrar)
 app.include_router(recovery_router.router)  # recuperación (apagada por default)
 
