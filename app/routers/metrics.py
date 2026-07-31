@@ -54,6 +54,8 @@ def metricas(desde: str | None = None, hasta: str | None = None,
     por_estado = Counter(l.estado or "nuevo" for l in leads)
     por_canal = Counter((l.source or "whatsapp") for l in leads)
     por_segmento = Counter((l.segmento or "sin definir") for l in leads)
+    por_marca = Counter((l.marca or "sin definir") for l in leads)
+    por_modelo = Counter((l.modelo or "sin definir") for l in leads)
     buenos = sum(1 for l in leads if (l.estado or "") in _BUENOS)
     ganados = por_estado.get("ganado", 0)
     perdidos = por_estado.get("perdido", 0)
@@ -87,6 +89,8 @@ def metricas(desde: str | None = None, hasta: str | None = None,
         "tasa_ganado": _pct(ganados),
         "por_estado": {e: por_estado.get(e, 0) for e in _ESTADOS},
         "por_canal": {c: por_canal.get(c, 0) for c in _CANALES},
+        "por_marca": {k: v for k, v in por_marca.items() if v},
+        "por_modelo": {k: v for k, v in por_modelo.items() if v},
         "por_segmento": {s: por_segmento.get(s, 0) for s in _SEGMENTOS
                          if por_segmento.get(s, 0)} | (
                          {"sin definir": por_segmento.get("sin definir", 0)}

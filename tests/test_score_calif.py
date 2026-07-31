@@ -61,6 +61,21 @@ def test_residencial_plazo_largo_califica():
     assert leads.validar_etapa(l, "calificado", args) == "calificado"
 
 
+def test_venta_office_califica_sin_plazo():
+    """EMA Office: venta de oficina completa, SIN plazo (es compra) → buen lead."""
+    l = EmaLead(phone="10", estado="interesado")
+    args = {"estado": "calificado", "marca": "office", "modelo": "venta",
+            "segmento": "corporativo", "necesidad": "oficina_completa", "zona": "Monterrey"}
+    assert leads.validar_etapa(l, "calificado", args) == "calificado"
+
+
+def test_venta_sin_necesidad_no_califica():
+    """Venta sin necesidad concreta → curioso, se degrada."""
+    l = EmaLead(phone="11", estado="nuevo")
+    args = {"estado": "calificado", "marca": "office", "modelo": "venta", "zona": "Monterrey"}
+    assert leads.validar_etapa(l, "calificado", args) == "interesado"
+
+
 def test_apply_capturar_lead_marca_calificado():
     """El flujo real: apply_capturar_lead con buen lead deja estado=calificado."""
     l = EmaLead(phone="9", estado="nuevo")

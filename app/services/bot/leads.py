@@ -55,29 +55,35 @@ def touch(lead: EmaLead) -> None:
 
 
 def _es_buen_lead(lead: EmaLead, args: dict) -> bool:
-    """Señal de BUEN LEAD: ticket alto (segmento o volumen) O plazo largo ("a futuro")."""
+    """Señal de BUEN LEAD: ticket alto (segmento o volumen), plazo largo ("a futuro"), o una
+    VENTA de oficina/corporativo (EMA Office = proyecto de mueble a la medida, alto valor)."""
     segmento = args.get("segmento") or lead.segmento
     necesidad = args.get("necesidad") or lead.necesidad
     plazo = args.get("plazo_meses") or lead.plazo_meses
+    modelo = args.get("modelo") or lead.modelo
     ticket_ok = segmento in SEGMENTOS_TICKET_ALTO
     volumen_ok = necesidad in NECESIDAD_VOLUMEN_ALTO
     futuro_ok = bool(plazo and int(plazo) >= PLAZO_LARGO_MESES)
-    return ticket_ok or volumen_ok or futuro_ok
+    venta_office_ok = (modelo == "venta" and segmento in ("oficina", "corporativo"))
+    return ticket_ok or volumen_ok or futuro_ok or venta_office_ok
 
 
 def validar_etapa(lead: EmaLead, estado_propuesto: str | None, args: dict) -> str | None:
     """GUARDA DE ETAPA (determinista). Para marcar 'calificado' (buen lead → alerta al admin)
-    se exigen (1) mínimos reales para no alertar a un curioso: necesidad + plazo + (fecha o zona),
-    y (2) señal de buen lead: ticket/volumen/plazo largo. Si no, se degrada a 'interesado'.
+    se exigen (1) mínimos reales para no alertar a un curioso: necesidad + (plazo o venta) +
+    (fecha o zona), y (2) señal de buen lead. Si no, se degrada a 'interesado'.
+    En VENTA no hay plazo, así que basta con que la necesidad esté definida.
     """
     if estado_propuesto not in ESTADOS_VALIDOS:
         return None  # inválido: no tocar el estado actual
     if estado_propuesto == "calificado":
         necesidad = args.get("necesidad") or lead.necesidad
         plazo = args.get("plazo_meses") or lead.plazo_meses
+        modelo = args.get("modelo") or lead.modelo
         fecha = args.get("fecha_entrega") or lead.fecha_entrega
         zona = args.get("zona") or lead.zona
-        base_ok = bool(necesidad and plazo and (fecha or zona))
+        tiempo_ok = bool(plazo) or (modelo == "venta")   # renta exige plazo; venta no
+        base_ok = bool(necesidad and tiempo_ok and (fecha or zona))
         if not (base_ok and _es_buen_lead(lead, args)):
             return "interesado"   # tibio: NO dispara alerta
     return estado_propuesto
@@ -117,7 +123,7 @@ def apply_capturar_lead(lead: EmaLead, args: dict) -> str:
     if args.get("nombre") and not lead.name:
         lead.name = args["nombre"].strip()
 
-    for campo in ("segmento", "necesidad", "fecha_entrega", "zona", "presupuesto",
+    for campo in ("marca", "modelo", "segmento", "necesidad", "fecha_entrega", "zona", "presupuesto",
                   "nivel_interes", "que_pregunto", "resumen", "motivo_perdida"):
         val = args.get(campo)
         if val not in (None, ""):

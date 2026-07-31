@@ -133,10 +133,17 @@ def seed(db: Session = Depends(get_db), user: User = Depends(auth.current_user))
         # Repartir la fecha de entrada a lo largo de ~28 días para que el filtro por fechas se vea.
         dias_atras = (i * 28) // len(_LEADS)          # 0..27, creciente
         creado = ahora - timedelta(days=dias_atras, hours=(i * 5) % 24)
+        # Marca/modelo: oficina o corporativo = EMA Office (mezcla venta/renta); resto = EMA Rentals (renta).
+        if seg in ("oficina", "corporativo"):
+            marca = "office"
+            modelo = "venta" if (i % 2 == 0) else "renta"
+        else:
+            marca, modelo = "rentals", "renta"
+        plazo_l = None if modelo == "venta" else plazo   # una venta no lleva plazo en meses
         l = EmaLead(
-            phone=phone, name=nombre, source=canal, segmento=seg, necesidad=nec,
-            plazo_meses=plazo, fecha_entrega=fecha, zona=zona, estado=estado,
-            nivel_interes=nivel, presupuesto=presu, resumen=resumen, es_demo=True,
+            phone=phone, name=nombre, source=canal, marca=marca, modelo=modelo,
+            segmento=seg, necesidad=nec, plazo_meses=plazo_l, fecha_entrega=fecha, zona=zona,
+            estado=estado, nivel_interes=nivel, presupuesto=presu, resumen=resumen, es_demo=True,
             message_count=0, bot_active=(estado not in ("asignado", "ganado")),
             created_at=creado, last_message_at=creado + timedelta(hours=2),
         )

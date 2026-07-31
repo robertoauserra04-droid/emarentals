@@ -58,6 +58,9 @@
   .badge{display:inline-block;font-size:9.5px;padding:2px 8px;border-radius:20px;font-weight:700;letter-spacing:.5px}
   .b-hot{background:#f7e9e2;color:var(--hot)}
   .b-ch{display:inline-block;font-size:10px;padding:1px 7px;border-radius:5px;background:var(--cream);color:var(--brand-d);margin-right:4px;font-weight:600}
+  .b-brand{display:inline-block;font-size:9.5px;padding:1px 7px;border-radius:5px;margin-right:4px;font-weight:700;letter-spacing:.3px}
+  .b-brand.office{background:#4e3d30;color:#f0e6dc}
+  .b-brand.rentals{background:var(--tan);color:#3a2e22}
   /* Score con etiqueta */
   .scorepill{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;
     padding:3px 10px;border-radius:20px;margin-top:9px}
@@ -280,6 +283,8 @@ const ESTADO_LABEL = {nuevo:"Nuevo", interesado:"Interesado", calificado:"Califi
 const COL_COLOR = {nuevo:"#8a817a", interesado:"#c08a3e", calificado:"#5b8f6a",
   asignado:"#6b8ba4", ganado:"#3f7d55", perdido:"#a9603f"};
 const NEC_TXT = {pieza_suelta:"pieza suelta", paquete:"paquete", casa_completa:"casa completa", oficina_completa:"oficina completa"};
+const BRAND_LBL = {rentals:"EMA Rentals", office:"EMA Office"};
+const MODELO_LBL = {renta:"Renta", venta:"Venta"};
 
 // Clasificación del score en etiqueta + color
 function scoreInfo(s){
@@ -293,6 +298,7 @@ function razonesLead(l){
   if(["airbnb","corporativo"].includes(l.segmento)) r.push("segmento de alto valor ("+l.segmento+")");
   if(["paquete","casa_completa","oficina_completa"].includes(l.necesidad)) r.push("volumen alto");
   if(l.plazo_meses>=12) r.push("plazo largo ("+l.plazo_meses+" meses)");
+  if(l.modelo==="venta" && ["oficina","corporativo"].includes(l.segmento)) r.push("venta de proyecto de oficina (EMA Office)");
   return r;
 }
 
@@ -313,12 +319,13 @@ async function loadKanban(){
       LEADS_BY_PHONE[l.phone]=l;
       const si = scoreInfo(l.score_calif);
       const hot = (est==='calificado') ? '<span class="badge b-hot">BUEN LEAD</span> ' : '';
+      const brand = l.marca ? `<span class="b-brand ${l.marca}">${l.marca==='office'?'OFFICE':'RENTALS'}${l.modelo?(' · '+MODELO_LBL[l.modelo]):''}</span>` : '';
       const ch = l.source ? `<span class="b-ch">${h(l.source)}</span>` : '';
       const bits = [l.segmento, l.necesidad && NEC_TXT[l.necesidad], l.plazo_meses && (l.plazo_meses+" meses"), l.zona]
         .filter(Boolean).map(h).join(" · ");
       html += `<div class="lead" onclick="openPerfil('${h(l.phone)}')">
         <div class="n">${hot}${h(l.name||l.phone)}</div>
-        <div class="meta">${ch}${bits||'<span class="muted">sin datos aún</span>'}</div>
+        <div class="meta">${brand}${ch}<br>${bits||'<span class="muted">sin datos aún</span>'}</div>
         <span class="scorepill ${si.cls}"><span class="num">${l.score_calif||0}</span> · ${si.lbl}</span></div>`;
     }
     html += '</div></div>';
@@ -361,6 +368,8 @@ async function openPerfil(phone){
 
       <div class="sec-lbl">Cómo está calificado</div>
       <div class="kv">
+        ${kvRow("Marca", l.marca ? BRAND_LBL[l.marca] : "")}
+        ${kvRow("Modelo", l.modelo ? MODELO_LBL[l.modelo] : "")}
         ${kvRow("Canal", l.source)}
         ${kvRow("Etapa", ESTADO_LABEL[l.estado]||l.estado)}
         ${kvRow("Interés", l.nivel_interes)}
@@ -536,6 +545,8 @@ function renderMetricas(d){
     </div>
     <div class="mgrid">
       <div class="mcard"><h3>Embudo por etapa</h3>${barras(d.por_estado, ESTADO_L, d.total)}</div>
+      <div class="mcard"><h3>Por marca</h3>${barras(d.por_marca||{}, {rentals:"EMA Rentals", office:"EMA Office", "sin definir":"Sin definir"})}</div>
+      <div class="mcard"><h3>Por modelo</h3>${barras(d.por_modelo||{}, {renta:"Renta", venta:"Venta", "sin definir":"Sin definir"})}</div>
       <div class="mcard"><h3>Por canal</h3>${barras(d.por_canal, CANAL_LBL)}</div>
       <div class="mcard"><h3>Por segmento</h3>${barras(d.por_segmento, SEG_LBL)}</div>
       <div class="mcard"><h3>Resumen del rango</h3>

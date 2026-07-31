@@ -23,6 +23,7 @@ def _lead_dto(l: EmaLead) -> dict:
     return {
         "id": l.id, "phone": l.phone, "name": l.name, "estado": l.estado,
         "score_calif": l.score_calif or 0, "nivel_interes": l.nivel_interes,
+        "marca": l.marca, "modelo": l.modelo,
         "segmento": l.segmento, "necesidad": l.necesidad, "plazo_meses": l.plazo_meses,
         "fecha_entrega": l.fecha_entrega, "zona": l.zona, "presupuesto": l.presupuesto,
         "resumen": l.resumen, "que_pregunto": l.que_pregunto, "source": l.source,

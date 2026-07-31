@@ -36,6 +36,17 @@ CAPTURAR_LEAD_TOOL = {
             "type": "object",
             "properties": {
                 "nombre": {"type": "string", "description": "Nombre de la persona, si lo dio"},
+                "marca": {
+                    "type": "string",
+                    "enum": ["rentals", "office"],
+                    "description": "Línea: 'office' si es mobiliario de oficina/empresa (EMA Office); "
+                                   "'rentals' si son muebles para casa, Airbnb o proyecto (EMA Rentals)",
+                },
+                "modelo": {
+                    "type": "string",
+                    "enum": ["renta", "venta"],
+                    "description": "Si quiere RENTAR o COMPRAR. Rentals siempre es renta; Office puede ser cualquiera.",
+                },
                 "segmento": {
                     "type": "string",
                     "enum": ["residencial", "oficina", "airbnb", "corporativo"],
@@ -48,7 +59,7 @@ CAPTURAR_LEAD_TOOL = {
                 },
                 "plazo_meses": {
                     "type": "integer",
-                    "description": "Por cuántos meses quiere la renta (3 a 24). Plazo largo = mejor prospecto.",
+                    "description": "Solo si es RENTA: por cuántos meses (3 a 24). Plazo largo = mejor prospecto. En VENTA, omítelo.",
                 },
                 "fecha_entrega": {
                     "type": "string",

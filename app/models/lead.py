@@ -46,6 +46,10 @@ class EmaLead(Base):
     resumen        = Column(Text, nullable=True)
     motivo_perdida = Column(Text, nullable=True)
 
+    # --- Marca / modelo comercial (EMA Rentals renta de muebles · EMA Office mobiliario de oficina) ---
+    marca         = Column(String, nullable=True)   # rentals (muebles casa/Airbnb) / office (oficina/corporativo)
+    modelo        = Column(String, nullable=True)   # renta / venta (EMA Office hace ambos; Rentals solo renta)
+
     # --- Dominio EMA Rentals (renta de muebles) ---
     segmento      = Column(String, nullable=True)   # residencial / oficina / airbnb / corporativo
     necesidad     = Column(String, nullable=True)   # pieza_suelta / paquete / casa_completa / oficina_completa

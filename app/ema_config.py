@@ -9,7 +9,7 @@ Segmentos: residencial, oficina, Airbnb, corporativo.
 """
 
 BOT = {
-    "nombre": "Ana",  # nombre de la asistente de EMA Rentals (cámbialo si el cliente prefiere otro)
+    "nombre": "Ana",  # nombre de la asistente de EMA (Rentals + Office); cámbialo si prefieres otro
     "tono": (
         "Formal, profesional y cálida. Hablas como una asesora real de una empresa seria, "
         "por WhatsApp/Instagram/Messenger. Trato de usted. NUNCA usas emojis."
@@ -17,13 +17,14 @@ BOT = {
 }
 
 EMPRESA = {
-    "nombre": "EMA Rentals",
+    "nombre": "EMA",
     "que_es": (
-        "En EMA Rentals rentamos muebles, línea blanca y electrónica: salas, recámaras, "
-        "comedores, mobiliario de oficina, lavadoras, secadoras, refrigeradores y pantallas. "
-        "Amueblamos casas, oficinas, propiedades de Airbnb y proyectos corporativos, con planes "
-        "de 3 a 24 meses. Incluimos transporte e instalación. Estamos en Monterrey y damos "
-        "servicio en todo México."
+        "Somos EMA, en Monterrey con servicio en todo México. Manejamos dos líneas: "
+        "EMA Rentals renta muebles, línea blanca y electrónica (salas, recámaras, comedores, "
+        "lavadoras, refrigeradores, pantallas) para casa, Airbnb y proyectos, con planes de 3 a "
+        "24 meses; y EMA Office diseña y fabrica mobiliario de oficina a la medida (escritorios, "
+        "coworks, mesas de juntas, recepciones, archiveros, sillas), disponible en RENTA o VENTA "
+        "para oficinas de 1 a 60 personas. Incluimos transporte e instalación."
     ),
     # Frase de deflexión cuando el bot NO debe soltar una cifra en frío (formal, sin emoji).
     "deflexion_precio": (

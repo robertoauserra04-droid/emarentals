@@ -21,8 +21,11 @@ def _resumen_lead(lead) -> str:
     """Texto legible del lead para el aviso al asesor."""
     canal = {"whatsapp": "WhatsApp", "instagram": "Instagram",
              "messenger": "Messenger"}.get(lead.source or "whatsapp", lead.source)
+    marca = {"office": "EMA Office", "rentals": "EMA Rentals"}.get(lead.marca or "", "EMA")
+    modelo = (lead.modelo or "").capitalize()
     partes = [
         f"Nuevo prospecto calificado por {canal}",
+        f"Marca: {marca}{(' · ' + modelo) if modelo else ''}",
         f"Nombre: {lead.name or 'sin nombre'}",
         f"Contacto: {lead.phone}",
     ]
