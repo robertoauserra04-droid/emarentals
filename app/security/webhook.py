@@ -1,8 +1,10 @@
 """Verificación de firma HMAC del webhook de Kapso (seguridad día 1).
 
-En prod la firma SIEMPRE se verifica (config.validar_config aborta el arranque si falta el
-secreto). En dev, si no hay secreto configurado, se deja pasar con un warning para poder probar.
+Kapso firma en el header `X-Webhook-Signature` con HMAC-SHA256 en HEX plano (Meta usa el prefijo
+`sha256=`; algunos emisores firman en base64). Aceptamos las tres formas. En prod la firma SIEMPRE
+se verifica; en dev, sin secreto, se deja pasar con un warning para poder probar.
 """
+import base64
 import hashlib
 import hmac
 import logging
@@ -21,7 +23,15 @@ def verificar_firma(body: bytes, firma_header: str | None) -> bool:
         return True
     if not firma_header:
         return False
-    esperado = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
-    # el header puede venir como "sha256=<hex>"
-    recibido = firma_header.split("=", 1)[-1].strip()
-    return hmac.compare_digest(esperado, recibido)
+    sig = firma_header.strip()
+    if sig.lower().startswith("sha256="):
+        sig = sig[len("sha256="):]
+    digest = hmac.new(secret.encode(), body, hashlib.sha256).digest()
+    esperado_hex = digest.hex()
+    esperado_b64 = base64.b64encode(digest).decode()
+    try:
+        if hmac.compare_digest(sig.lower(), esperado_hex.lower()):
+            return True
+        return hmac.compare_digest(sig, esperado_b64)
+    except Exception:  # noqa: BLE001
+        return False

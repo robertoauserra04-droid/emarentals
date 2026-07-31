@@ -19,6 +19,17 @@ from app.services.bot import leads
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/webhook", tags=["webhook"])
 
+# Kapso firma en X-Webhook-Signature; las demás son respaldo (Meta/otros).
+_SIGNATURE_HEADERS = ("x-webhook-signature", "x-hub-signature-256", "x-kapso-signature", "x-signature")
+
+
+def _firma(headers) -> str | None:
+    for h in _SIGNATURE_HEADERS:
+        v = headers.get(h)
+        if v:
+            return v
+    return None
+
 
 @router.get("")
 async def verify(request: Request):
@@ -26,7 +37,53 @@ async def verify(request: Request):
     params = request.query_params
     if params.get("hub.verify_token") == settings.webhook_verify_token:
         return int(params.get("hub.challenge", 0))
-    return {"ok": False}
+    return {"ok": True}
+
+
+def _nombre_kapso(conv: dict, msg: dict, phone: str) -> str | None:
+    conv_k = conv.get("kapso") or {}
+    msg_k = msg.get("kapso") or {}
+    contactos = conv.get("contacts") or []
+    c0 = contactos[0] if contactos else {}
+    candidatos = [
+        (conv.get("metadata") or {}).get("customer_name"),
+        conv.get("contact_name"), conv_k.get("contact_name"), msg_k.get("contact_name"),
+        (c0.get("profile") or {}).get("name"), (conv.get("profile") or {}).get("name"),
+        conv.get("username"),
+    ]
+    for c in candidatos:
+        if c and isinstance(c, str) and c.strip() and c.strip() != phone:
+            return c.strip()
+    return None
+
+
+def _extraer_kapso(payload: dict) -> dict | None:
+    """Payload v2 de Kapso: {message:{...}, conversation:{...}} (a veces envuelto en 'data')."""
+    msg = payload.get("message") or {}
+    conv = payload.get("conversation") or {}
+    kap = msg.get("kapso") or {}
+    wamid = msg.get("id") or msg.get("whatsapp_message_id")
+    tipo = msg.get("type") or msg.get("message_type") or "text"
+    text = ((msg.get("text") or {}).get("body")
+            or kap.get("content") or msg.get("content") or "")
+    audio_url = None
+    if tipo in ("audio", "voice"):
+        media = msg.get(tipo) or {}
+        audio_url = media.get("url") or media.get("link")
+    direction = (kap.get("direction") or msg.get("direction") or "inbound").lower()
+    origin = kap.get("origin")  # cloud_api = eco del propio bot; business_app = humano
+    raw_phone = (conv.get("phone_number") or msg.get("from") or "").replace(" ", "")
+    phone = raw_phone.lstrip("+")
+    if not phone:
+        return None
+    if direction != "inbound":
+        # Saliente: eco del bot (cloud_api) se ignora; humano (business_app u otro) pausa el bot.
+        if origin == "cloud_api":
+            return None
+        return {"direccion": "outbound", "telefono_destino": phone, "text": text, "wamid": wamid}
+    name = _nombre_kapso(conv, msg, phone)
+    return {"direccion": "inbound", "phone": phone, "text": text, "name": name,
+            "audio_url": audio_url, "wamid": wamid}
 
 
 def _extraer_nombre(entry: dict, msg: dict, phone: str) -> str | None:
@@ -71,6 +128,13 @@ def _extraer(payload: dict) -> dict | None:
     SALIENTE (negocio/asesor por coexistencia): {direccion:'outbound', telefono_destino, text, wamid}.
     None si no es un mensaje (p.ej. reportes de estado 'statuses').
     """
+    # Kapso a veces envuelve el evento en 'data'.
+    if "message" not in payload and isinstance(payload.get("data"), dict):
+        payload = payload["data"]
+    # Formato Kapso v2: {message, conversation}.
+    if isinstance(payload.get("message"), dict):
+        return _extraer_kapso(payload)
+    # Formato Meta Cloud API (respaldo).
     try:
         entry = payload["entry"][0]["changes"][0]["value"]
         if entry.get("statuses") is not None:
@@ -107,9 +171,10 @@ def _extraer(payload: dict) -> dict | None:
 @router.post("")
 async def inbound(request: Request, db: Session = Depends(get_db)):
     body = await request.body()
-    firma = request.headers.get("X-Hub-Signature-256") or request.headers.get("X-Kapso-Signature")
+    firma = _firma(request.headers)
     if not verificar_firma(body, firma):
-        logger.warning("[webhook] firma inválida, rechazado")
+        logger.warning("[webhook] firma inválida/ausente, rechazado. headers=%s",
+                       list(request.headers.keys()))
         return {"ok": False, "error": "firma inválida"}
 
     payload = await request.json()
