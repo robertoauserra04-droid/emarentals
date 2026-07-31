@@ -140,9 +140,28 @@ def seed(db: Session = Depends(get_db), user: User = Depends(auth.current_user))
         else:
             marca, modelo = "rentals", "renta"
         plazo_l = None if modelo == "venta" else plazo   # una venta no lleva plazo en meses
-        # Perfil estratégico (solo si ya hay datos; los 'nuevo' quedan sin clasificar).
+        # Flujo de calificación (renta) + perfil estratégico (los 'nuevo' quedan sin datos).
         ticket = uso = escala = urg = estruct = None
+        tipo_prop = recam = m2 = personas = tiempo = None
         if seg and estado != "nuevo":
+            # Tipo de propiedad + su dato ligado
+            if seg in ("oficina", "corporativo"):
+                tipo_prop = "oficina"
+                m2, personas = (200, 30) if seg == "corporativo" else ((120, 22) if i % 2 == 0 else (60, 8))
+            elif seg == "airbnb":
+                tipo_prop, recam = "departamento", (2 if nec == "casa_completa" else 1)
+            else:  # residencial
+                if nec == "casa_completa":
+                    tipo_prop, recam = "casa", 3
+                else:
+                    tipo_prop, recam = "departamento", (2 if i % 2 == 0 else 1)
+            # Tiempo de renta (de plazo del demo)
+            if plazo is None or plazo >= 12:
+                tiempo = "12+"
+            elif plazo < 6:
+                tiempo = "0-6"
+            else:
+                tiempo = "6-12"
             uso = "reventa" if seg == "airbnb" else "propio"
             if seg == "airbnb":
                 # casa completa = proyecto grande (socio); paquete = más chico (aliado)
@@ -158,6 +177,8 @@ def seed(db: Session = Depends(get_db), user: User = Depends(auth.current_user))
             estruct = "empresa" if seg in ("oficina", "corporativo") else "persona_fisica"
         l = EmaLead(
             phone=phone, name=nombre, source=canal, marca=marca, modelo=modelo,
+            tipo_propiedad=tipo_prop, recamaras=recam, oficina_m2=m2, oficina_personas=personas,
+            tiempo_renta=tiempo,
             segmento=seg, necesidad=nec, plazo_meses=plazo_l, fecha_entrega=fecha, zona=zona,
             estado=estado, nivel_interes=nivel, presupuesto=presu, resumen=resumen, es_demo=True,
             ticket_mensual=ticket, uso=uso, potencial_escala=escala, urgencia_cierre=urg,
@@ -165,7 +186,14 @@ def seed(db: Session = Depends(get_db), user: User = Depends(auth.current_user))
             message_count=0, bot_active=(estado not in ("asignado", "ganado")),
             created_at=creado, last_message_at=creado + timedelta(hours=2),
         )
-        clasificacion.clasificar(db, l)   # calcula perfil + horas
+        clasificacion.clasificar(db, l)   # calcula perfil (cuadrante) + horas
+        # Buen prospecto (flujo del bot) + coherencia con la etapa
+        bueno, tipo_of = leads_svc.evaluar_prospecto(l)
+        l.es_buen_prospecto = bueno
+        l.tipo_oficina = tipo_of
+        if l.estado in ("interesado", "calificado"):
+            l.estado = "calificado" if bueno else "interesado"
+        leads_svc.recompute_score_calif(l)
         if estado in ("calificado", "asignado", "ganado"):
             l.escalated = True
             l.alertado_at = ahora - timedelta(hours=i * 3, minutes=5)

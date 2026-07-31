@@ -50,13 +50,22 @@ class EmaLead(Base):
     marca         = Column(String, nullable=True)   # rentals (muebles casa/Airbnb) / office (oficina/corporativo)
     modelo        = Column(String, nullable=True)   # renta / venta (EMA Office hace ambos; Rentals solo renta)
 
-    # --- Dominio EMA Rentals (renta de muebles) ---
+    # --- Flujo de calificación del bot (renta) ---
+    tipo_propiedad   = Column(String, nullable=True)   # oficina / departamento / casa
+    recamaras        = Column(Integer, nullable=True)  # depto/casa: nº de recámaras
+    oficina_m2       = Column(Integer, nullable=True)  # oficina: m² aproximados
+    oficina_personas = Column(Integer, nullable=True)  # oficina: personas que trabajarán
+    tiempo_renta     = Column(String, nullable=True)   # 0-6 / 6-12 / 12+ (meses)
+    tipo_oficina     = Column(String, nullable=True)   # tipo1 (0-12m) / tipo2 (12+m) — solo oficinas
+    es_buen_prospecto = Column(Boolean, default=False) # lo calcula el bot al filtrar
+
+    # --- Dominio previo (se conserva; segmento se deriva de tipo_propiedad) ---
     segmento      = Column(String, nullable=True)   # residencial / oficina / airbnb / corporativo
     necesidad     = Column(String, nullable=True)   # pieza_suelta / paquete / casa_completa / oficina_completa
-    plazo_meses   = Column(Integer, nullable=True)  # 3–24 (plazo largo = mejor lead)
+    plazo_meses   = Column(Integer, nullable=True)  # (heredado)
     fecha_entrega = Column(String, nullable=True)   # ya / 1-4sem / >1mes (texto)
     zona          = Column(String, nullable=True)   # Monterrey / ciudad-estado (texto libre)
-    presupuesto   = Column(String, nullable=True)   # rango declarado (texto; sin parseo duro en v1)
+    presupuesto   = Column(String, nullable=True)   # rango declarado (texto)
 
     # --- Perfil estratégico (cuadrante 2×2 Ticket × Uso) — se calcula solo al guardar ---
     ticket_mensual   = Column(Integer, nullable=True)   # MXN/mes (0 si es venta puntual sin mensualidad)

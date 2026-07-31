@@ -25,6 +25,11 @@ def _lead_dto(l: EmaLead) -> dict:
         "id": l.id, "phone": l.phone, "name": l.name, "estado": l.estado,
         "score_calif": l.score_calif or 0, "nivel_interes": l.nivel_interes,
         "marca": l.marca, "modelo": l.modelo,
+        # Flujo de calificación (renta)
+        "tipo_propiedad": l.tipo_propiedad, "recamaras": l.recamaras,
+        "oficina_m2": l.oficina_m2, "oficina_personas": l.oficina_personas,
+        "tiempo_renta": l.tiempo_renta, "tipo_oficina": l.tipo_oficina,
+        "es_buen_prospecto": bool(l.es_buen_prospecto),
         "segmento": l.segmento, "necesidad": l.necesidad, "plazo_meses": l.plazo_meses,
         "fecha_entrega": l.fecha_entrega, "zona": l.zona, "presupuesto": l.presupuesto,
         "resumen": l.resumen, "que_pregunto": l.que_pregunto, "source": l.source,

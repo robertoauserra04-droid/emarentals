@@ -28,75 +28,54 @@ CAPTURAR_LEAD_TOOL = {
     "function": {
         "name": "capturar_lead",
         "description": (
-            "Registra o actualiza los datos del prospecto con lo que sabes de la conversación. "
-            "Llámala en cuanto tengas un dato nuevo (segmento, necesidad, plazo, fecha, zona, "
-            "presupuesto, interés). No inventes datos."
+            "Registra o actualiza los datos del prospecto conforme lo vas filtrando. Llámala en "
+            "cuanto tengas un dato nuevo (tipo de propiedad, recámaras, m²/personas, tiempo de renta). "
+            "No inventes datos. El sistema clasifica solo; tú solo registra lo que la persona diga."
         ),
         "parameters": {
             "type": "object",
             "properties": {
                 "nombre": {"type": "string", "description": "Nombre de la persona, si lo dio"},
-                "marca": {
+                "tipo_propiedad": {
                     "type": "string",
-                    "enum": ["rentals", "office"],
-                    "description": "Línea: 'office' si es mobiliario de oficina/empresa (EMA Office); "
-                                   "'rentals' si son muebles para casa, Airbnb o proyecto (EMA Rentals)",
+                    "enum": ["oficina", "departamento", "casa"],
+                    "description": "Para qué tipo de propiedad es la renta",
                 },
-                "modelo": {
+                "recamaras": {
+                    "type": "integer",
+                    "description": "Solo departamento o casa: número de recámaras",
+                },
+                "oficina_m2": {
+                    "type": "integer",
+                    "description": "Solo oficina: metros cuadrados aproximados",
+                },
+                "oficina_personas": {
+                    "type": "integer",
+                    "description": "Solo oficina: cuántas personas trabajarán ahí",
+                },
+                "tiempo_renta": {
                     "type": "string",
-                    "enum": ["renta", "venta"],
-                    "description": "Si quiere RENTAR o COMPRAR. Rentals siempre es renta; Office puede ser cualquiera.",
+                    "enum": ["0-6", "6-12", "12+"],
+                    "description": "Cuánto tiempo quiere rentar: '0-6' (6 meses o menos), "
+                                   "'6-12' (6 a 12 meses), '12+' (12 meses o más)",
                 },
                 "uso": {
                     "type": "string",
                     "enum": ["reventa", "propio"],
-                    "description": "Si pondrá los muebles frente a SUS propios clientes o unidades "
-                                   "(reventa: hotelero/Airbnb, desarrollador, coworking, staging) o si los "
-                                   "usará él mismo (propio). Solo si queda claro en la charla.",
-                },
-                "segmento": {
-                    "type": "string",
-                    "enum": ["residencial", "oficina", "airbnb", "corporativo"],
-                    "description": "Para qué es: casa (residencial), oficina, propiedad de Airbnb, o proyecto corporativo",
-                },
-                "necesidad": {
-                    "type": "string",
-                    "enum": ["pieza_suelta", "paquete", "casa_completa", "oficina_completa"],
-                    "description": "Cuánto necesita: una pieza suelta, un paquete, o amueblar completo",
-                },
-                "plazo_meses": {
-                    "type": "integer",
-                    "description": "Solo si es RENTA: por cuántos meses (3 a 24). Plazo largo = mejor prospecto. En VENTA, omítelo.",
-                },
-                "fecha_entrega": {
-                    "type": "string",
-                    "enum": ["ya", "1-4sem", ">1mes"],
-                    "description": "Qué tan pronto necesita la entrega",
+                    "description": "Si pondrá los muebles frente a SUS clientes/unidades (reventa: "
+                                   "Airbnb, desarrollador, coworking) o si los usará él mismo (propio). Solo si es claro.",
                 },
                 "zona": {"type": "string", "description": "Ciudad/zona de entrega (ej. Monterrey, CDMX)"},
-                "presupuesto": {
-                    "type": "string",
-                    "description": "Presupuesto o rango que declaró, tal como lo dijo (ej. 'unos 5 mil al mes')",
-                },
                 "nivel_interes": {
                     "type": "string",
                     "enum": ["Alto", "Medio", "Bajo"],
                     "description": "Qué tan interesada se ve la persona",
                 },
-                "estado": {
-                    "type": "string",
-                    "enum": ["nuevo", "interesado", "calificado", "ganado", "perdido"],
-                    "description": (
-                        "En qué punto va. Usa 'calificado' SOLO si ya se ve un buen prospecto real "
-                        "(sabe qué necesita, por cuánto tiempo y para cuándo). El sistema valida "
-                        "que haya señales reales antes de avisar a un asesor."
-                    ),
-                },
                 "que_pregunto": {"type": "string", "description": "Qué le interesó o preguntó (breve)"},
                 "resumen": {"type": "string", "description": "Resumen en 1-2 frases de lo que necesita"},
                 "motivo_perdida": {
                     "type": "string",
-                    "description": "Si se va o pierde interés, por qué",
+                    "description": "Solo si la persona ya no está interesada: por qué",
                 },
             },
             "required": [],

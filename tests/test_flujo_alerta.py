@@ -17,14 +17,13 @@ def test_buen_lead_dispara_alerta_y_cede(db, monkeypatch):
     phone = "5218110000001"
     _sembrar_conversacion(db, phone, "Hola, quiero amueblar una oficina completa por 12 meses en Monterrey")
 
-    # La IA "llama" capturar_lead con un buen lead y responde texto.
+    # La IA "llama" capturar_lead con un buen prospecto y responde texto.
     def fake_generate_reply(system, history, handlers):
         handlers["capturar_lead"]({
-            "segmento": "corporativo", "necesidad": "oficina_completa",
-            "plazo_meses": 12, "zona": "Monterrey", "estado": "calificado",
-            "resumen": "Oficina completa 12 meses en Monterrey", "nivel_interes": "Alto",
+            "tipo_propiedad": "oficina", "oficina_personas": 30, "tiempo_renta": "12+",
+            "zona": "Monterrey", "resumen": "Oficina 30 personas, 12+ meses", "nivel_interes": "Alto",
         })
-        return "Con gusto. Le paso con un asesor que le prepara la propuesta."
+        return "Perfecto, gracias. En unos momentos un asesor te contactará."
     monkeypatch.setattr(handler.ai, "generate_reply", fake_generate_reply)
 
     # No mandar nada real por WhatsApp.

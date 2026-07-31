@@ -1,27 +1,24 @@
-"""CRUD de EmaLead + la GUARDA DE ETAPA determinista ("buen lead").
+"""CRUD de EmaLead + la CALIFICACIÓN determinista (el bot filtra, el código decide).
 
-La IA propone la clasificación con `capturar_lead`; aquí el CÓDIGO valida el salto a
-'calificado' antes de persistir, para que un bot agradable NO sobrecalifique al curioso. Ese es
-el "casco" que distingue este proyecto de Bell crudo (patrón G2 + cinturón de robustez).
-
-Criterio de BUEN LEAD (definido con el cliente): buen ticket final + quiere mucho (volumen) +
-quiere a futuro (plazo largo). Los pesos/umbrales viven aquí, fáciles de afinar.
+Flujo (renta): tipo de propiedad → pregunta ligada → tiempo de renta. Reglas de BUEN PROSPECTO:
+  - Casa: siempre buen prospecto (por el simple hecho de ser casa).
+  - Departamento: buen prospecto si tiene 2 o más recámaras.
+  - Oficina: buen prospecto si es de 100 m² o más, o 20 personas o más.
+Etiqueta de tiempo:
+  - Casa/Departamento con 12+ meses = prospecto fuerte.
+  - Oficina 0-12 meses = Tipo 1; Oficina 12+ meses = Tipo 2.
+El bot nunca cierra venta ni demo; al terminar de filtrar, escala a un asesor.
 """
 from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
-from app.models.lead import EmaLead, ESTADOS_VALIDOS
-
-# ─────────── Umbrales afinables del "buen lead" ───────────
-SEGMENTOS_TICKET_ALTO = {"airbnb", "corporativo"}         # ticket alto por segmento
-NECESIDAD_VOLUMEN_ALTO = {"paquete", "casa_completa", "oficina_completa"}  # "quiere mucho"
-PLAZO_LARGO_MESES = 12                                      # "quiere a futuro"
+from app.models.lead import EmaLead
 
 
 def norm_phone(phone: str) -> str:
     """52XXXXXXXXXX — quita el + y el 1 de móvil que México agrega en WA (521...).
-    Para IG/Messenger el identificador es un PSID; se deja tal cual (no empieza en 521)."""
+    Para IG/Messenger el identificador es un PSID; se deja tal cual."""
     d = (phone or "").lstrip("+")
     if len(d) == 13 and d.startswith("521"):
         d = "52" + d[3:]
@@ -29,7 +26,6 @@ def norm_phone(phone: str) -> str:
 
 
 def _nombre_generico(nombre: str | None, phone: str) -> bool:
-    """True si el nombre guardado NO es real (vacío / 'cliente' / el propio teléfono)."""
     if not nombre:
         return True
     n = nombre.strip()
@@ -54,97 +50,107 @@ def touch(lead: EmaLead) -> None:
     lead.last_message_at = datetime.now(timezone.utc)
 
 
-def _es_buen_lead(lead: EmaLead, args: dict) -> bool:
-    """Señal de BUEN LEAD: ticket alto (segmento o volumen), plazo largo ("a futuro"), o una
-    VENTA de oficina/corporativo (EMA Office = proyecto de mueble a la medida, alto valor)."""
-    segmento = args.get("segmento") or lead.segmento
-    necesidad = args.get("necesidad") or lead.necesidad
-    plazo = args.get("plazo_meses") or lead.plazo_meses
-    modelo = args.get("modelo") or lead.modelo
-    ticket_ok = segmento in SEGMENTOS_TICKET_ALTO
-    volumen_ok = necesidad in NECESIDAD_VOLUMEN_ALTO
-    futuro_ok = bool(plazo and int(plazo) >= PLAZO_LARGO_MESES)
-    venta_office_ok = (modelo == "venta" and segmento in ("oficina", "corporativo"))
-    return ticket_ok or volumen_ok or futuro_ok or venta_office_ok
+def _marca_de(tp: str | None) -> str | None:
+    if tp == "oficina":
+        return "office"
+    if tp in ("casa", "departamento"):
+        return "rentals"
+    return None
 
 
-def validar_etapa(lead: EmaLead, estado_propuesto: str | None, args: dict) -> str | None:
-    """GUARDA DE ETAPA (determinista). Para marcar 'calificado' (buen lead → alerta al admin)
-    se exigen (1) mínimos reales para no alertar a un curioso: necesidad + (plazo o venta) +
-    (fecha o zona), y (2) señal de buen lead. Si no, se degrada a 'interesado'.
-    En VENTA no hay plazo, así que basta con que la necesidad esté definida.
-    """
-    if estado_propuesto not in ESTADOS_VALIDOS:
-        return None  # inválido: no tocar el estado actual
-    if estado_propuesto == "calificado":
-        necesidad = args.get("necesidad") or lead.necesidad
-        plazo = args.get("plazo_meses") or lead.plazo_meses
-        modelo = args.get("modelo") or lead.modelo
-        fecha = args.get("fecha_entrega") or lead.fecha_entrega
-        zona = args.get("zona") or lead.zona
-        tiempo_ok = bool(plazo) or (modelo == "venta")   # renta exige plazo; venta no
-        base_ok = bool(necesidad and tiempo_ok and (fecha or zona))
-        if not (base_ok and _es_buen_lead(lead, args)):
-            return "interesado"   # tibio: NO dispara alerta
-    return estado_propuesto
+def evaluar_prospecto(lead: EmaLead) -> tuple[bool, str | None]:
+    """Devuelve (es_buen_prospecto, tipo_oficina). Reglas del cliente."""
+    tp = lead.tipo_propiedad
+    if tp == "casa":
+        bueno = True
+    elif tp == "departamento":
+        bueno = (lead.recamaras or 0) >= 2
+    elif tp == "oficina":
+        bueno = (lead.oficina_m2 or 0) >= 100 or (lead.oficina_personas or 0) >= 20
+    else:
+        bueno = False
+    tipo_of = None
+    if tp == "oficina":
+        tipo_of = "tipo2" if lead.tiempo_renta == "12+" else "tipo1"
+    return bueno, tipo_of
 
 
-# Piso de score por fase: hace visible que el prospecto "sube" al avanzar de etapa.
-_PISO_POR_ESTADO = {"interesado": 35, "calificado": 65, "asignado": 70, "ganado": 100}
+def _completo(lead: EmaLead) -> bool:
+    """¿Ya tenemos lo necesario para clasificar (tipo + su dato + tiempo)?"""
+    tp = lead.tipo_propiedad
+    if not tp or not lead.tiempo_renta:
+        return False
+    if tp == "casa":
+        return True                                   # casa ya es buen prospecto
+    if tp == "departamento":
+        return lead.recamaras is not None
+    if tp == "oficina":
+        return lead.oficina_m2 is not None or lead.oficina_personas is not None
+    return False
 
 
 def recompute_score_calif(lead: EmaLead) -> int:
-    """Score comercial determinista 0-100, reponderado a los 3 ejes del buen lead:
-    ticket (segmento) + volumen (necesidad) + futuro (plazo) + urgencia (fecha) + zona."""
-    s = 0
-    s += {"corporativo": 30, "airbnb": 25, "oficina": 15, "residencial": 10}.get(lead.segmento or "", 0)
-    s += {"casa_completa": 25, "oficina_completa": 25, "paquete": 15,
-          "pieza_suelta": 5}.get(lead.necesidad or "", 0)
-    plazo = lead.plazo_meses or 0
-    if plazo >= 12:
-        s += 20
-    elif plazo >= 6:
-        s += 12
-    elif plazo >= 3:
+    """Score 0-100 visible en el Kanban, derivado del buen prospecto + tiempo."""
+    bueno, _ = evaluar_prospecto(lead)
+    s = 80 if bueno else 45
+    if lead.tiempo_renta == "12+":
+        s += 15
+    elif lead.tiempo_renta == "6-12":
         s += 5
-    s += {"ya": 15, "1-4sem": 10, ">1mes": 3}.get(lead.fecha_entrega or "", 0)
-    if lead.zona:
-        s += 5
-    s = min(100, s)
-    if lead.estado != "perdido":
-        s = max(s, _PISO_POR_ESTADO.get(lead.estado or "", 0))
-    lead.score_calif = s
-    return s
+    if lead.estado in ("nuevo", None) and not lead.tipo_propiedad:
+        s = 0
+    lead.score_calif = min(100, s)
+    return lead.score_calif
+
+
+def _texto_prospecto(lead: EmaLead, bueno: bool, tipo_of: str | None) -> str:
+    if lead.tipo_propiedad == "oficina" and tipo_of:
+        t = "Tipo 1 (hasta 1 año)" if tipo_of == "tipo1" else "Tipo 2 (más de 1 año)"
+        return f"oficina · {t}" + (" · buen prospecto" if bueno else "")
+    return "buen prospecto" if bueno else "prospecto en evaluación"
 
 
 def apply_capturar_lead(lead: EmaLead, args: dict) -> str:
-    """Aplica la tool capturar_lead con semántica COALESCE (vacío NO sobreescribe) + la
-    guarda de etapa. Devuelve un texto corto de resultado para la IA."""
+    """Aplica la tool capturar_lead y CLASIFICA de forma determinista (el bot filtra)."""
     if args.get("nombre") and not lead.name:
         lead.name = args["nombre"].strip()
 
-    for campo in ("marca", "modelo", "uso", "segmento", "necesidad", "fecha_entrega", "zona", "presupuesto",
+    # Enteros
+    for campo in ("recamaras", "oficina_m2", "oficina_personas"):
+        v = args.get(campo)
+        if v not in (None, ""):
+            try:
+                setattr(lead, campo, int(v))
+            except (TypeError, ValueError):
+                pass
+    # Strings (COALESCE: vacío no sobreescribe)
+    for campo in ("tipo_propiedad", "tiempo_renta", "uso", "zona", "presupuesto",
                   "nivel_interes", "que_pregunto", "resumen", "motivo_perdida"):
-        val = args.get(campo)
-        if val not in (None, ""):
-            setattr(lead, campo, val)
-    if args.get("plazo_meses") not in (None, ""):
-        try:
-            lead.plazo_meses = int(args["plazo_meses"])
-        except (TypeError, ValueError):
-            pass
+        v = args.get(campo)
+        if v not in (None, ""):
+            setattr(lead, campo, v)
 
-    # Estado: pasa por la guarda determinista.
-    estado_validado = validar_etapa(lead, args.get("estado"), args)
-    if estado_validado:
-        lead.estado = estado_validado
+    # Derivados
+    if lead.tipo_propiedad:
+        lead.marca = _marca_de(lead.tipo_propiedad)
+        if not lead.modelo:
+            lead.modelo = "renta"
+    bueno, tipo_of = evaluar_prospecto(lead)
+    lead.es_buen_prospecto = bueno
+    lead.tipo_oficina = tipo_of
 
-    # Auto-avance suave: si mostró interés real pero seguía en 'nuevo', pásalo a 'interesado'.
-    if lead.estado in (None, "nuevo") and lead.nivel_interes in ("Alto", "Medio"):
-        lead.estado = "interesado"
+    # Estado (el código decide; nunca degrada de asignado/ganado/perdido).
+    if args.get("motivo_perdida"):
+        lead.estado = "perdido"
+    elif lead.estado not in ("asignado", "ganado", "perdido"):
+        if _completo(lead):
+            lead.estado = "calificado" if bueno else "interesado"
+        elif lead.tipo_propiedad or lead.nivel_interes in ("Alto", "Medio"):
+            if lead.estado in (None, "nuevo"):
+                lead.estado = "interesado"
 
     recompute_score_calif(lead)
-    return "datos del prospecto actualizados"
+    return "prospecto actualizado: " + _texto_prospecto(lead, bueno, tipo_of)
 
 
 def mark_won(db: Session, lead: EmaLead, monto: str | None = None) -> None:
