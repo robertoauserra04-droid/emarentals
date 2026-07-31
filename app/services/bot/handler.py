@@ -137,6 +137,10 @@ def handle_inbound(db: Session, phone: str, text: str, name: str | None = None,
         if conv is not None:
             conv.bot_active = False
 
+    # Asegurar que la fase asignada exista (si el admin borró la destino, cae a una equivalente).
+    from app.routers.fases import resolver_clave
+    lead.estado = resolver_clave(db, lead.estado)
+
     db.commit()
 
     # Enviar la respuesta (en burbujas).

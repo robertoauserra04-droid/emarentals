@@ -65,7 +65,35 @@ def _dto(f: Fase) -> dict:
     return {"id": f.id, "clave": f.clave, "nombre": f.nombre, "color": f.color,
             "orden": f.orden, "rol": f.rol, "activa": bool(f.activa),
             "descripcion": f.descripcion or "", "criterios": f.criterios or "",
-            "editable_borrar": f.rol == "custom"}
+            "editable_borrar": True}
+
+
+# Rol semántico de cada clave base (para rutear con fallback si borran la fase destino).
+_ROL_DE_CLAVE = {
+    "nuevo": "entrada", "interesado": "pipeline", "low_priority": "lowpri",
+    "residencial_bueno": "bueno_residencial", "oficina_bueno": "bueno_oficina",
+    "ganado": "ganado", "perdido": "perdido",
+}
+_FALLBACK_ROL = {
+    "bueno_oficina": ["bueno_residencial", "entrada"], "bueno_residencial": ["bueno_oficina", "entrada"],
+    "lowpri": ["entrada"], "pipeline": ["entrada"], "perdido": ["entrada"], "ganado": ["entrada"],
+    "entrada": [],
+}
+
+
+def resolver_clave(db: Session, clave: str | None) -> str:
+    """Devuelve una clave de fase EXISTENTE. Si la deseada fue borrada, cae a una equivalente por
+    rol (buen prospecto → otra 'bueno' o a la entrada). Así borrar cualquier fase no rompe el bot."""
+    fs = listar_fases(db)
+    claves = {f.clave for f in fs}
+    if clave in claves:
+        return clave
+    porrol = {f.rol: f.clave for f in fs}
+    rol = _ROL_DE_CLAVE.get(clave or "", "")
+    for r in ([rol] + _FALLBACK_ROL.get(rol, [])):
+        if r in porrol:
+            return porrol[r]
+    return fs[0].clave if fs else (clave or "nuevo")
 
 
 def listar_fases(db: Session) -> list[Fase]:
@@ -144,14 +172,23 @@ def reordenar(data: OrdenIn, db: Session = Depends(get_db), user: User = Depends
 
 @router.delete("/{fase_id}")
 def borrar(fase_id: int, db: Session = Depends(get_db), user: User = Depends(auth.solo_dueno)):
-    """Borra una columna custom; sus leads se mueven a la fase de entrada. Las base no se borran."""
+    """Borra CUALQUIER fase. Sus leads se mueven a otra fase (la de entrada, o la primera que quede).
+    No se puede borrar la última (debe quedar al menos una columna)."""
     f = db.query(Fase).filter(Fase.id == fase_id).first()
     if not f:
         raise HTTPException(404, "Fase no encontrada")
-    if f.rol != "custom":
-        raise HTTPException(400, "Las fases base no se pueden borrar (solo renombrar/recolorar)")
-    entrada = clave_por_rol(db, "entrada", "nuevo")
-    db.query(EmaLead).filter(EmaLead.estado == f.clave).update({EmaLead.estado: entrada})
+    if db.query(Fase).count() <= 1:
+        raise HTTPException(400, "Debe quedar al menos una fase en el pipeline")
+    # Destino de los leads: la fase de entrada si no es la que se borra; si no, la primera que quede.
+    destino = None
+    entrada = db.query(Fase).filter(Fase.rol == "entrada", Fase.id != f.id).first()
+    if entrada:
+        destino = entrada.clave
+    else:
+        otra = db.query(Fase).filter(Fase.id != f.id).order_by(Fase.orden.asc()).first()
+        destino = otra.clave if otra else None
+    if destino:
+        db.query(EmaLead).filter(EmaLead.estado == f.clave).update({EmaLead.estado: destino})
     db.delete(f)
     db.commit()
-    return {"ok": True}
+    return {"ok": True, "movidos_a": destino}
