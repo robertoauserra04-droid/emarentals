@@ -129,6 +129,32 @@
   .tag-on{color:var(--ok);font-weight:700;font-size:12px}
   .tag-off{color:var(--muted);font-size:12px}
   .rolechip{font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;background:var(--cream);color:var(--brand-d)}
+  /* Métricas */
+  .filtros{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px;margin-bottom:18px}
+  .filtros .f{display:flex;flex-direction:column}
+  .filtros label{font-size:11px;color:var(--muted);font-weight:600;margin-bottom:2px}
+  .filtros input{margin:0;width:auto}
+  .presets{display:flex;gap:6px}
+  .presets button{background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:20px;padding:7px 13px;font-size:12.5px}
+  .presets button.active{background:var(--cream);color:var(--brand-d);border-color:var(--tan)}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px}
+  .kpi{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow)}
+  .kpi .v{font-size:30px;font-weight:800;line-height:1}
+  .kpi .k{color:var(--muted);font-size:12.5px;margin-top:5px}
+  .kpi .s{font-size:11.5px;font-weight:600;margin-top:3px}
+  .mgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:820px){.mgrid{grid-template-columns:1fr}}
+  .mcard{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:var(--shadow)}
+  .mcard h3{margin:0 0 14px;font-size:14px}
+  .bar{display:grid;grid-template-columns:110px 1fr 42px;align-items:center;gap:10px;margin-bottom:10px;font-size:13px}
+  .bar .track{background:var(--cream);border-radius:6px;height:12px;overflow:hidden}
+  .bar .track > i{display:block;height:100%;border-radius:6px;background:var(--brand)}
+  .bar .val{text-align:right;font-weight:700;font-size:12.5px}
+  .spark{display:flex;align-items:flex-end;gap:3px;height:120px;padding-top:6px}
+  .spark .d{flex:1;min-width:4px;background:var(--tan);border-radius:3px 3px 0 0;position:relative;transition:background .15s}
+  .spark .d:hover{background:var(--brand)}
+  .spark .d > i{position:absolute;bottom:0;left:0;right:0;background:var(--brand);border-radius:3px 3px 0 0}
+  .sparklbls{display:flex;justify-content:space-between;color:var(--muted);font-size:11px;margin-top:6px}
 </style>
 </head>
 <body>
@@ -155,6 +181,7 @@
   <main>
     <div id="kanban"></div>
     <div id="inbox" style="display:none"></div>
+    <div id="metricas" style="display:none"></div>
     <div id="usuarios" style="display:none"></div>
   </main>
 </div>
@@ -198,7 +225,7 @@ async function boot(){
   try{ SEC_CAT = await (await api("/api/auth/secciones")).json(); }catch(e){ SEC_CAT=[]; }
   document.getElementById("who").textContent = (ME.nombre||ME.email) + " · " + ME.rol;
   // Nav gateado por secciones
-  const tabs = [["leads","Leads"],["bandeja","Bandeja"],["usuarios","Usuarios"]];
+  const tabs = [["leads","Leads"],["bandeja","Bandeja"],["metricas","Métricas"],["usuarios","Usuarios"]];
   const nav = document.getElementById("nav"); nav.innerHTML="";
   for(const [sec,label] of tabs){
     if(!puede(sec)) continue;
@@ -212,9 +239,13 @@ async function boot(){
 function show(sec){
   document.getElementById("kanban").style.display  = sec==='leads'?'block':'none';
   document.getElementById("inbox").style.display   = sec==='bandeja'?'block':'none';
+  document.getElementById("metricas").style.display= sec==='metricas'?'block':'none';
   document.getElementById("usuarios").style.display= sec==='usuarios'?'block':'none';
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle("active", b.dataset.sec===sec));
-  if(sec==='leads') loadKanban(); else if(sec==='bandeja') loadInbox(); else loadUsuarios();
+  if(sec==='leads') loadKanban();
+  else if(sec==='bandeja') loadInbox();
+  else if(sec==='metricas') loadMetricas();
+  else loadUsuarios();
 }
 
 const ESTADO_LABEL = {nuevo:"Nuevo", interesado:"Interesado", calificado:"Calificado",
@@ -372,6 +403,119 @@ async function toggleBot(phone){
   await api("/api/conversaciones/"+encodeURIComponent(phone)+"/bot",
     {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({})});
   openConv(phone);
+}
+
+// ─────────── Métricas (filtro por fechas) ───────────
+let M_DESDE="", M_HASTA="", M_PRESET="30";
+const CANAL_LBL = {whatsapp:"WhatsApp", instagram:"Instagram", messenger:"Messenger"};
+const SEG_LBL = {residencial:"Residencial", oficina:"Oficina", airbnb:"Airbnb", corporativo:"Corporativo", "sin definir":"Sin definir"};
+
+function fmtFecha(d){ return d.toISOString().slice(0,10); }
+function setPreset(dias){
+  M_PRESET = dias;
+  const hoy = new Date();
+  M_HASTA = fmtFecha(hoy);
+  if(dias==="todo"){ M_DESDE=""; M_HASTA=""; }
+  else { const desde=new Date(hoy); desde.setDate(hoy.getDate()-(parseInt(dias)-1)); M_DESDE=fmtFecha(desde); }
+  loadMetricas();
+}
+
+async function loadMetricas(){
+  const cont = document.getElementById("metricas");
+  // Estructura fija (filtros) + contenedor de resultados
+  if(!document.getElementById("m_body")){
+    cont.innerHTML = `
+      <div class="filtros">
+        <div class="presets" id="m_presets">
+          <button data-p="7">7 días</button>
+          <button data-p="30">30 días</button>
+          <button data-p="90">90 días</button>
+          <button data-p="todo">Todo</button>
+        </div>
+        <div class="f"><label>Desde</label><input type="date" id="m_desde"></div>
+        <div class="f"><label>Hasta</label><input type="date" id="m_hasta"></div>
+        <button class="sm" onclick="aplicarRango()">Aplicar</button>
+      </div>
+      <div id="m_body"><div class="muted">Cargando…</div></div>`;
+    document.querySelectorAll('#m_presets button').forEach(b=>b.onclick=()=>setPreset(b.dataset.p));
+    if(!M_DESDE && M_PRESET!=="todo"){ setPreset(M_PRESET); return; }
+  }
+  // Marcar preset activo + reflejar fechas
+  document.querySelectorAll('#m_presets button').forEach(b=>b.classList.toggle("active", b.dataset.p===M_PRESET));
+  document.getElementById("m_desde").value = M_DESDE;
+  document.getElementById("m_hasta").value = M_HASTA;
+
+  let qs = [];
+  if(M_DESDE) qs.push("desde="+M_DESDE);
+  if(M_HASTA) qs.push("hasta="+M_HASTA);
+  const d = await (await api("/api/metrics"+(qs.length?("?"+qs.join("&")):""))).json();
+  renderMetricas(d);
+}
+function aplicarRango(){
+  M_DESDE = document.getElementById("m_desde").value;
+  M_HASTA = document.getElementById("m_hasta").value;
+  M_PRESET = "custom";
+  loadMetricas();
+}
+
+function barras(obj, labels, max){
+  const tot = max || Math.max(1, ...Object.values(obj));
+  return Object.entries(obj).map(([k,v])=>`
+    <div class="bar"><span>${h(labels[k]||k)}</span>
+      <span class="track"><i style="width:${Math.round(100*v/tot)}%"></i></span>
+      <span class="val">${v}</span></div>`).join("") || '<div class="muted">Sin datos</div>';
+}
+
+function renderMetricas(d){
+  const body = document.getElementById("m_body");
+  const rango = (d.rango.desde||d.rango.hasta)
+    ? `del ${d.rango.desde||'inicio'} al ${d.rango.hasta||'hoy'}` : "de todo el histórico";
+  const ESTADO_L = {nuevo:"Nuevo",interesado:"Interesado",calificado:"Calificado",asignado:"Asignado",ganado:"Ganado",perdido:"Perdido"};
+
+  // KPIs
+  const kpis = `
+    <div class="kpis">
+      <div class="kpi"><div class="v">${d.total}</div><div class="k">Leads que entraron</div></div>
+      <div class="kpi"><div class="v" style="color:var(--ok)">${d.buenos}</div><div class="k">Buenos leads (calificados+)</div>
+        <div class="s" style="color:var(--ok)">${d.tasa_calificacion}% del total</div></div>
+      <div class="kpi"><div class="v">${d.ganados}</div><div class="k">Ganados</div>
+        <div class="s" style="color:var(--brand)">${d.tasa_ganado}% del total</div></div>
+      <div class="kpi"><div class="v">${d.alertados}</div><div class="k">Alertas al equipo</div></div>
+      <div class="kpi"><div class="v">${d.score_promedio}</div><div class="k">Score promedio</div></div>
+      <div class="kpi"><div class="v" style="color:var(--hot)">${d.perdidos}</div><div class="k">Perdidos</div></div>
+    </div>`;
+
+  // Serie diaria (spark)
+  const serie = d.serie||[];
+  const maxDia = Math.max(1, ...serie.map(x=>x.total));
+  const spark = serie.length ? `
+    <div class="spark">${serie.map(x=>`
+      <div class="d" style="height:${Math.round(100*x.total/maxDia)}%" title="${x.fecha}: ${x.total} leads (${x.buenos} buenos)">
+        <i style="height:${x.total?Math.round(100*x.buenos/x.total):0}%"></i></div>`).join("")}</div>
+    <div class="sparklbls"><span>${serie[0].fecha}</span><span>${serie[serie.length-1].fecha}</span></div>`
+    : '<div class="muted">Sin leads en este rango</div>';
+
+  body.innerHTML = kpis + `
+    <div class="mcard" style="margin-bottom:16px">
+      <h3>Leads por día · ${rango}</h3>
+      ${spark}
+      <div class="muted" style="font-size:12px;margin-top:8px">Barra = leads que entraron ese día · relleno oscuro = buenos leads.</div>
+    </div>
+    <div class="mgrid">
+      <div class="mcard"><h3>Embudo por etapa</h3>${barras(d.por_estado, ESTADO_L, d.total)}</div>
+      <div class="mcard"><h3>Por canal</h3>${barras(d.por_canal, CANAL_LBL)}</div>
+      <div class="mcard"><h3>Por segmento</h3>${barras(d.por_segmento, SEG_LBL)}</div>
+      <div class="mcard"><h3>Resumen del rango</h3>
+        <div class="kv">
+          <div class="row"><span class="k">Total de leads</span><span class="v">${d.total}</span></div>
+          <div class="row"><span class="k">Buenos leads</span><span class="v">${d.buenos} (${d.tasa_calificacion}%)</span></div>
+          <div class="row"><span class="k">Ganados</span><span class="v">${d.ganados} (${d.tasa_ganado}%)</span></div>
+          <div class="row"><span class="k">Perdidos</span><span class="v">${d.perdidos}</span></div>
+          <div class="row"><span class="k">Alertas enviadas</span><span class="v">${d.alertados}</span></div>
+          <div class="row"><span class="k">Score promedio</span><span class="v">${d.score_promedio}/100</span></div>
+        </div>
+      </div>
+    </div>`;
 }
 
 // ─────────── Usuarios (crear + asignar secciones) ───────────
