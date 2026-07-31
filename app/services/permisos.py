@@ -6,18 +6,11 @@ El `asesor` además conserva el scoping de datos (solo sus leads/visitas) que ya
 routers de leads/visitas — esto es visibilidad de SECCIÓN, complementaria a ese scoping.
 """
 
-# (clave, etiqueta) — orden = orden del menú lateral.
+# (clave, etiqueta) — orden = orden del menú. Secciones REALES de EMA Rentals (panel mínimo).
 SECCIONES: list[tuple[str, str]] = [
-    ("leads",       "Leads / Pipeline"),
-    ("agenda",      "Agenda"),
-    ("visitas",     "Visitas"),
-    ("propiedades", "Propiedades"),
-    ("campanas",    "Campañas"),
-    ("reportes",    "Reportes"),
-    ("finanzas",    "Finanzas"),
-    ("recuperacion","Recuperación"),
-    ("usuarios",    "Usuarios"),
-    ("config",      "Configuración"),
+    ("leads",    "Leads / Pipeline"),
+    ("bandeja",  "Bandeja de conversaciones"),
+    ("usuarios", "Usuarios"),
 ]
 
 CLAVES_VALIDAS = {c for c, _ in SECCIONES}
@@ -25,8 +18,8 @@ CLAVES_VALIDAS = {c for c, _ in SECCIONES}
 # Presets por rol (lo que se asigna por default al crear; el dueño edita a gusto).
 DEFAULT_SECCIONES = {
     "dueno":       list(CLAVES_VALIDAS),
-    "coordinador": ["leads", "agenda", "visitas", "propiedades", "campanas", "reportes"],
-    "asesor":      ["leads", "agenda", "visitas"],
+    "coordinador": ["leads", "bandeja"],
+    "asesor":      ["leads", "bandeja"],
 }
 
 
