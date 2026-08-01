@@ -529,8 +529,9 @@ async function loadInbox(){
     '<div class="chat" id="chat"><div class="msgs muted" style="padding:24px">Elige una conversación</div></div></div>';
   CONVS = await (await api("/api/conversaciones")).json();
   const list = document.getElementById("convlist");
-  if(!CONVS.length){ list.innerHTML='<div class="muted" style="padding:16px">Sin conversaciones aún</div>'; return; }
-  list.innerHTML = CONVS.map(c=>`<div class="conv" onclick="openConv('${h(c.phone)}')">
+  const header = `<div style="padding:10px;border-bottom:1px solid var(--line)"><button class="ghost sm" style="width:100%" onclick="nuevaPrueba()">＋ Nueva prueba del bot</button></div>`;
+  if(!CONVS.length){ list.innerHTML=header+'<div class="muted" style="padding:16px">Sin conversaciones aún</div>'; return; }
+  list.innerHTML = header + CONVS.map(c=>`<div class="conv" onclick="openConv('${h(c.phone)}')">
     <div class="top"><b>${h(c.name||c.phone)}</b><span class="b-ch">${h(c.channel)}</span></div>
     <div class="meta muted" style="font-size:12px">${c.estado?(ESTADO_LABEL[c.estado]||c.estado):''} · ${c.total} msgs</div>
     </div>`).join("");
@@ -541,6 +542,7 @@ async function openConv(phone){
   const botPill = d.bot_active ? '<span class="pill on">bot activo</span>' : '<span class="pill off">humano al mando</span>';
   let html = `<div class="head"><b>${h(d.name||phone)}</b> <span class="b-ch">${h(d.channel)}</span>
      ${botPill} <span class="sp" style="flex:1"></span>
+     <button class="ghost sm" onclick="reiniciarConv('${h(phone)}')">Reiniciar</button>
      <button class="ghost sm" onclick="toggleBot('${h(phone)}')">${d.bot_active?'Tomar chat':'Devolver al bot'}</button></div>`;
   html += '<div class="msgs" id="msgs">';
   for(const m of d.mensajes){ html += `<div class="bub ${m.dir}">${h(m.body)}</div>`; }
@@ -548,6 +550,10 @@ async function openConv(phone){
   html += `<div class="sendrow"><input id="sendtxt" placeholder="Escribe una respuesta…"
      onkeydown="if(event.key==='Enter')sendMsg('${h(phone)}')">
      <button onclick="sendMsg('${h(phone)}')">Enviar</button></div>`;
+  html += `<div class="sendrow" style="border-top:1px dashed var(--line);background:var(--panel2)">
+     <input id="simtxt" placeholder="Prueba: escribe como cliente y ve la respuesta del bot…"
+     onkeydown="if(event.key==='Enter')simular('${h(phone)}')">
+     <button class="ghost" onclick="simular('${h(phone)}')">Simular</button></div>`;
   document.getElementById("chat").innerHTML = html;
   const m = document.getElementById("msgs"); m.scrollTop = m.scrollHeight;
 }
@@ -562,6 +568,21 @@ async function toggleBot(phone){
   await api("/api/conversaciones/"+encodeURIComponent(phone)+"/bot",
     {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({})});
   openConv(phone);
+}
+async function reiniciarConv(phone){
+  if(!confirm("¿Reiniciar esta conversación? Se borra el historial y el lead vuelve a Nuevo (para pruebas).")) return;
+  await api("/api/conversaciones/"+encodeURIComponent(phone)+"/reiniciar", {method:"POST"});
+  openConv(phone);
+}
+async function simular(phone){
+  const inp=document.getElementById("simtxt"); const t=inp.value.trim(); if(!t) return; inp.value="";
+  await api("/api/conversaciones/"+encodeURIComponent(phone)+"/simular",
+    {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({texto:t})});
+  openConv(phone);
+}
+function nuevaPrueba(){
+  const id = "prueba-" + Date.now();
+  openConv(id);
 }
 
 // ─────────── Métricas (filtro por fechas) ───────────

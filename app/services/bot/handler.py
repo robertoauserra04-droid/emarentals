@@ -65,7 +65,9 @@ def _split_bubbles(reply: str) -> list[str]:
 
 
 def handle_inbound(db: Session, phone: str, text: str, name: str | None = None,
-                   channel: str = "whatsapp", campania_id: int | None = None) -> None:
+                   channel: str = "whatsapp", campania_id: int | None = None,
+                   enviar: bool = True) -> None:
+    """enviar=False → modo prueba: NO manda por WhatsApp/IG; solo guarda la respuesta en el panel."""
     logger.warning("[bot] handle_inbound phone=%s name=%s channel=%s", phone, name, channel)
 
     # Registrar/actualizar el lead SIEMPRE (entra al kanban aunque el bot no responda).
@@ -143,12 +145,18 @@ def handle_inbound(db: Session, phone: str, text: str, name: str | None = None,
 
     db.commit()
 
-    # Enviar la respuesta (en burbujas).
+    # Enviar la respuesta (en burbujas). En modo prueba (enviar=False) solo se guarda en el panel.
     try:
         from app.services import messaging_out
         for bubble in _split_bubbles(reply):
-            messaging_out.send_text(db, phone, bubble, channel=channel, name=name)
-        logger.warning("[bot] respuesta enviada a %s (msg #%s)", phone, lead.message_count)
+            if enviar:
+                messaging_out.send_text(db, phone, bubble, channel=channel, name=name)
+            else:
+                db.add(ChatMessage(phone=phone, channel=channel,
+                                   direction=MessageDirection.outbound, body=bubble))
+                db.commit()
+        logger.warning("[bot] respuesta %s a %s (msg #%s)",
+                       "enviada" if enviar else "SIMULADA", phone, lead.message_count)
     except Exception as e:  # noqa: BLE001
         logger.error("[bot] error enviando mensaje: %s", e)
 

@@ -87,6 +87,61 @@ class BotIn(BaseModel):
     bot_active: bool | None = None
 
 
+@router.post("/{phone}/reiniciar")
+def reiniciar(phone: str, db: Session = Depends(get_db), user: User = Depends(auth.current_user)):
+    """Empieza la conversación de nuevo (para pruebas): borra el historial y deja el lead como nuevo,
+    con el bot activo. El siguiente mensaje arranca el flujo desde cero."""
+    db.query(ChatMessage).filter(ChatMessage.phone == phone).delete(synchronize_session=False)
+    lead = db.query(EmaLead).filter(EmaLead.phone == phone).first()
+    if lead:
+        for campo in ("tipo_propiedad", "recamaras", "oficina_m2", "oficina_personas", "tiempo_renta",
+                      "tipo_oficina", "marca", "modelo", "uso", "zona", "presupuesto", "resumen",
+                      "que_pregunto", "nivel_interes", "motivo_perdida"):
+            setattr(lead, campo, None)
+        lead.estado = "nuevo"
+        lead.es_buen_prospecto = False
+        lead.score_calif = 0
+        lead.escalated = False
+        lead.alertado_at = None
+        lead.message_count = 0
+        lead.bot_active = True
+    conv = db.query(Conversation).filter(Conversation.phone == phone).first()
+    if conv:
+        conv.bot_active = True
+    db.commit()
+    return {"ok": True}
+
+
+class SimIn(BaseModel):
+    texto: str
+
+
+@router.post("/{phone}/simular")
+def simular(phone: str, body: SimIn, db: Session = Depends(get_db),
+            user: User = Depends(auth.current_user)):
+    """Modo prueba: mete un mensaje COMO CLIENTE y corre el bot SIN mandar nada real por el canal.
+    Sirve para probar internamente el flujo y ver cómo clasifica/responde el bot."""
+    texto = (body.texto or "").strip()
+    if not texto:
+        raise HTTPException(422, "Texto vacío")
+    conv = db.query(Conversation).filter(Conversation.phone == phone).first()
+    channel = (conv.channel if conv else None) or "whatsapp"
+    if conv is None:
+        conv = Conversation(phone=phone, channel=channel)
+        db.add(conv)
+    conv.bot_active = True   # asegurar que el bot conteste en la prueba
+    db.add(ChatMessage(phone=phone, channel=channel, direction=MessageDirection.inbound, body=texto))
+    db.commit()
+    from app.services import recovery
+    from app.services.bot import handler, leads as leadsvc
+    lead = leadsvc.get_or_create_lead(db, phone, channel=channel)
+    lead.bot_active = True
+    recovery.register_inbound(db, lead, texto)
+    db.commit()
+    handler.handle_inbound(db, phone, texto, channel=channel, enviar=False)  # dry-run
+    return {"ok": True}
+
+
 @router.post("/{phone}/bot")
 def toggle_bot(phone: str, body: BotIn, db: Session = Depends(get_db),
                user: User = Depends(auth.current_user)):

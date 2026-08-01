@@ -50,6 +50,30 @@ def test_buen_lead_dispara_alerta_y_cede(db, monkeypatch):
     assert conv.bot_active is False
 
 
+def test_simular_dryrun_guarda_sin_enviar(db, monkeypatch):
+    """Modo prueba (enviar=False): el bot responde y se guarda en el panel, pero NO se manda por el canal."""
+    phone = "5218110009999"
+    def fake(system, history, handlers):
+        handlers["capturar_lead"]({"tipo_propiedad": "casa", "tiempo_renta": "12+"})
+        return "Con gusto. En unos momentos un asesor te contactará."
+    monkeypatch.setattr(handler.ai, "generate_reply", fake)
+    handler.settings.openai_api_key = "test-key"
+    enviados = []
+    import app.services.messaging_out as mo
+    monkeypatch.setattr(mo, "_enviar_por_canal", lambda p, b, c: enviados.append(1) or "x")
+    import app.services.notificaciones as noti
+    monkeypatch.setattr(noti, "alertar_admin", lambda lead: True)
+
+    handler.handle_inbound(db, phone, "hola quiero rentar una casa", channel="whatsapp", enviar=False)
+
+    outs = db.query(ChatMessage).filter(ChatMessage.phone == phone,
+                                        ChatMessage.direction == MessageDirection.outbound).all()
+    assert len(outs) >= 1          # la respuesta quedó en el panel
+    assert enviados == []          # NO se envió por WhatsApp/IG (dry-run)
+    lead = db.query(EmaLead).filter(EmaLead.phone == phone).first()
+    assert lead.estado == "residencial_bueno"   # clasificó igual que en real
+
+
 def test_curioso_no_alerta(db, monkeypatch):
     phone = "5218110000002"
     _sembrar_conversacion(db, phone, "cuanto cuesta un refri?")
