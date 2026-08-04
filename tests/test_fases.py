@@ -6,8 +6,37 @@ from app.routers import fases as F
 def test_seed_crea_las_base(db):
     F.seed_fases(db)
     claves = [f.clave for f in F.listar_fases(db)]
-    assert claves == ["nuevo", "interesado", "low_priority", "residencial_bueno",
-                      "oficina_bueno", "ganado", "perdido"]
+    assert claves == ["nuevo", "descartado", "pregunton",
+                      "residencial_baja", "oficina_baja",
+                      "interesado_oficina", "interesado_residencial",
+                      "residencial_normal", "oficina_mid",
+                      "residencial_bueno", "oficina_bueno"]
+
+
+def test_ganado_y_perdido_no_son_fases(db):
+    """Cerrar o perder es un desenlace (`es_venta` / `motivo_perdida`), no una columna."""
+    F.seed_fases(db)
+    claves = {f.clave for f in F.listar_fases(db)}
+    assert "ganado" not in claves and "perdido" not in claves
+
+
+def test_adopta_columnas_creadas_a_mano(db):
+    """El caso de producción: el admin creó las columnas desde el panel, así que nacieron con
+    rol 'custom' y clave del slug — y el bot no podía rutear hacia ellas."""
+    db.add(Fase(clave="nuevo", nombre="Nuevo", orden=0, rol="entrada", activa=True))
+    db.add(Fase(clave="oficina_mid_2", nombre="Oficina Mid", orden=1, rol="custom", activa=True))
+    db.add(Fase(clave="pregunt_n", nombre="Preguntón", orden=2, rol="custom", activa=True))
+    db.commit()
+
+    F.seed_fases(db)
+
+    adoptada = db.query(Fase).filter(Fase.nombre == "Oficina Mid").first()
+    assert adoptada.clave == "oficina_mid" and adoptada.rol == "mid_oficina"
+    # El acento no impide el emparejamiento.
+    preg = db.query(Fase).filter(Fase.nombre == "Preguntón").first()
+    assert preg.clave == "pregunton" and preg.rol == "pregunton"
+    # Y ahora el bot sí llega ahí.
+    assert F.resolver_clave(db, "oficina_mid") == "oficina_mid"
 
 
 def test_resolver_clave_existente(db):
@@ -25,9 +54,9 @@ def test_borrar_base_mueve_leads_y_fallback(db):
     db.query(EmaLead).filter(EmaLead.estado == fase.clave).update({EmaLead.estado: ent.clave})
     db.delete(fase)
     db.commit()
-    # el lead se movió y un futuro oficina_bueno cae a residencial_bueno
+    # el lead se movió y un futuro oficina_bueno cae en el equivalente más cercano
     assert db.query(EmaLead).filter(EmaLead.phone == "1").first().estado == "nuevo"
-    assert F.resolver_clave(db, "oficina_bueno") == "residencial_bueno"
+    assert F.resolver_clave(db, "oficina_bueno") == "oficina_mid"
 
 
 def test_resolver_a_entrada_si_no_hay_equivalente(db):

@@ -13,12 +13,14 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.lead import EmaLead
 from app.models.user import User
-from app.services import auth
+from app.services import auth, visibilidad
 
 router = APIRouter(prefix="/api/metrics", tags=["metrics"])
 
-_BUENOS = ("residencial_bueno", "oficina_bueno", "ganado")
-_ESTADOS = ["nuevo", "interesado", "low_priority", "residencial_bueno", "oficina_bueno", "ganado", "perdido"]
+_BUENOS = ("residencial_bueno", "oficina_bueno")
+# Fases base. Ganado y Perdido NO son fases: son desenlaces y se cuentan por `es_venta` /
+# `motivo_perdida`, así que un lead cerrado sigue apareciendo en su columna.
+_ESTADOS = ["nuevo", "interesado", "low_priority", "residencial_bueno", "oficina_bueno"]
 _CANALES = ["whatsapp", "instagram", "messenger"]
 _SEGMENTOS = ["residencial", "oficina", "airbnb", "corporativo"]
 
@@ -43,7 +45,9 @@ def metricas(desde: str | None = None, hasta: str | None = None,
              db: Session = Depends(get_db), user: User = Depends(auth.requiere_seccion("metricas"))):
     d0 = _parse(desde)
     d1 = _parse(hasta)
-    q = db.query(EmaLead)
+    # Sin este filtro, los leads ocultos y los teléfonos marcados "no es lead" seguían contando
+    # en todos los KPIs (es el hueco que tiene aseguradora con `archivado`).
+    q = visibilidad.visibles(db.query(EmaLead))
     if d0:
         q = q.filter(EmaLead.created_at >= d0)
     if d1:

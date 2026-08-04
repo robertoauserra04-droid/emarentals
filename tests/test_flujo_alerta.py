@@ -36,7 +36,7 @@ def test_buen_lead_dispara_alerta_y_cede(db, monkeypatch):
     # Capturar la alerta al admin.
     alertas = []
     import app.services.notificaciones as noti
-    monkeypatch.setattr(noti, "alertar_admin", lambda lead: alertas.append(lead.phone) or True)
+    monkeypatch.setattr(noti, "alertar_admin", lambda lead, **kw: alertas.append(lead.phone) or True)
 
     handler.handle_inbound(db, phone, "quiero amueblar una oficina completa por 12 meses", channel="whatsapp")
 
@@ -54,7 +54,7 @@ def test_simular_dryrun_guarda_sin_enviar(db, monkeypatch):
     """Modo prueba (enviar=False): el bot responde y se guarda en el panel, pero NO se manda por el canal."""
     phone = "5218110009999"
     def fake(system, history, handlers):
-        handlers["capturar_lead"]({"tipo_propiedad": "casa", "tiempo_renta": "12+"})
+        handlers["capturar_lead"]({"tipo_propiedad": "casa", "recamaras": 3, "tiempo_renta": "12+"})
         return "Con gusto. En unos momentos un asesor te contactará."
     monkeypatch.setattr(handler.ai, "generate_reply", fake)
     handler.settings.openai_api_key = "test-key"
@@ -62,7 +62,7 @@ def test_simular_dryrun_guarda_sin_enviar(db, monkeypatch):
     import app.services.messaging_out as mo
     monkeypatch.setattr(mo, "_enviar_por_canal", lambda p, b, c: enviados.append(1) or "x")
     import app.services.notificaciones as noti
-    monkeypatch.setattr(noti, "alertar_admin", lambda lead: True)
+    monkeypatch.setattr(noti, "alertar_admin", lambda lead, **kw: True)
 
     handler.handle_inbound(db, phone, "hola quiero rentar una casa", channel="whatsapp", enviar=False)
 
@@ -88,12 +88,12 @@ def test_curioso_no_alerta(db, monkeypatch):
     monkeypatch.setattr(mo, "_enviar_por_canal", lambda p, b, c: "wamid-out")
     alertas = []
     import app.services.notificaciones as noti
-    monkeypatch.setattr(noti, "alertar_admin", lambda lead: alertas.append(lead.phone) or True)
+    monkeypatch.setattr(noti, "alertar_admin", lambda lead, **kw: alertas.append(lead.phone) or True)
 
     handler.handle_inbound(db, phone, "cuanto cuesta un refri?", channel="whatsapp")
 
     lead = db.query(EmaLead).filter(EmaLead.phone == phone).first()
-    assert lead.estado == "interesado"    # degradado por la guarda
+    assert lead.estado == "nuevo"          # sin tipo de propiedad no hay carril
     assert lead.alertado_at is None        # NO se alertó
     assert alertas == []
     assert lead.bot_active is True         # el bot sigue atendiendo

@@ -100,11 +100,21 @@ def _envios_totales(db: Session, lead: EmaLead) -> int:
 
 
 def _elegibles(db: Session):
-    """Leads que mostraron interés, callaron y no están excluidos."""
+    """Leads recuperables: los que están en una fase con el toggle de Recuperación encendido.
+
+    Antes esto era una tupla fija `("interesado", "calificado", "asignado")` que además había
+    quedado desincronizada: `calificado` y `asignado` ya no existen en el pipeline, así que solo
+    `interesado` hacía match. Ahora lo decide el admin desde la pantalla de Fases.
+    """
+    from app.routers.fases import claves_con_recuperacion
+
+    claves = claves_con_recuperacion(db)
+    if not claves:
+        return []
     return (db.query(EmaLead)
             .filter(EmaLead.opted_out.is_(False),
                     EmaLead.recovery_paused.is_(False),
-                    EmaLead.estado.in_(("interesado", "calificado", "asignado")),
+                    EmaLead.estado.in_(claves),
                     EmaLead.es_venta.is_(False))
             .all())
 

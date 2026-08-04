@@ -191,9 +191,21 @@ def seed(db: Session = Depends(get_db), user: User = Depends(auth.current_user))
         bueno, tipo_of = leads_svc.evaluar_prospecto(l)
         l.es_buen_prospecto = bueno
         l.tipo_oficina = tipo_of
-        # Rutear a la fase correcta (Residencial/Oficina Bueno o Low Priority); dejar nuevo/ganado/perdido.
-        if l.estado not in ("nuevo", "ganado", "perdido"):
+        # Ganado y perdido ya NO son fases: son desenlaces que viven en banderas del lead.
+        if estado == "ganado":
+            l.es_venta = True
+        elif estado == "perdido":
+            l.motivo_perdida = resumen or "no avanzó"
+        # Rutear a la fase que le toca según el flujo real.
+        if estado == "nuevo":
+            l.estado = leads_svc.FASE_ENTRADA
+        elif estado == "perdido":
+            l.estado = leads_svc.FASE_DESCARTADO
+        else:
             l.estado = leads_svc.fase_calificada(l, bueno)
+        # Si el admin borró la fase destino, caer a la equivalente (si no, quedan fuera del tablero).
+        from app.routers.fases import resolver_clave
+        l.estado = resolver_clave(db, l.estado)
         leads_svc.recompute_score_calif(l)
         if estado in ("calificado", "asignado", "ganado"):
             l.escalated = True

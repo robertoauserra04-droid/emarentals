@@ -85,6 +85,9 @@ def _bootstrap() -> None:
     try:
         recovery.seed_defaults(db)
         fases_router.seed_fases(db)
+        # Migra ALERTA_ADMIN_TELEFONOS al directorio de contactos la primera vez, para no perder
+        # la configuración que ya está en el .env al pasar a destinatarios por fase.
+        fases_router.seed_contactos(db)
         if settings.admin_password and not db.query(User).filter(User.email == settings.admin_email).first():
             db.add(User(email=settings.admin_email, nombre=settings.admin_name, rol="dueno",
                         password_hash=auth.hash_password(settings.admin_password)))

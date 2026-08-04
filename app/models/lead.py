@@ -13,8 +13,14 @@ from sqlalchemy.sql import func
 
 from app.database import Base
 
-# Pipeline del filtro de leads. 'calificado' = buen lead (dispara alerta al admin).
-ESTADOS_VALIDOS = {"nuevo", "interesado", "calificado", "asignado", "ganado", "perdido"}
+# Claves de las fases base. La fuente de verdad es la tabla `fases` (el admin agrega y quita
+# columnas), así que esto es solo referencia — no se valida contra ello en runtime.
+# Ganado y Perdido NO están: son desenlaces (`es_venta` / `motivo_perdida`), no columnas.
+ESTADOS_VALIDOS = {"nuevo", "descartado", "pregunton",
+                   "interesado_residencial", "interesado_oficina",
+                   "residencial_baja", "oficina_baja",
+                   "residencial_normal", "oficina_mid",
+                   "residencial_bueno", "oficina_bueno"}
 
 
 class AppSetting(Base):
@@ -105,13 +111,21 @@ class EmaLead(Base):
 
     timezone = Column(String, nullable=True)   # IANA; NULL = default MX
 
+    # Clave de la fase cuyo mensaje de cierre ya se envió: evita repetirlo en cada turno.
+    cierre_enviado_en = Column(String, nullable=True)
+
+    # Oculto del tablero. NO borra nada: el lead sigue en Historial y se puede devolver.
+    # Política del proyecto: sin DELETE físico (ver app/routers/usuarios.py).
+    oculto    = Column(Boolean, default=False)
+    oculto_at = Column(DateTime(timezone=True), nullable=True)
+
 
 class Fase(Base):
     """Fase del pipeline (columna del Kanban). Configurable: el admin renombra, recolora, reordena
     y agrega/quita columnas. La `clave` es ESTABLE (el bot y el código la usan); el `nombre` es la
-    etiqueta visible que se puede cambiar sin romper nada. `rol` fija el papel de las fases base:
-    entrada (donde caen los nuevos), calificado (buen prospecto → alerta), ganado, perdido, pipeline
-    (intermedia) y custom (columna extra manual que agrega el admin)."""
+    etiqueta visible que se puede cambiar sin romper nada. `rol` fija el papel de cada fase base
+    (entrada, pregunton, descartado, interesado_*, baja_*, normal_*/mid_*, bueno_*) y es lo que usa
+    `resolver_clave` para el fallback; `custom` es una columna extra que agregó el admin."""
     __tablename__ = "fases"
 
     id         = Column(Integer, primary_key=True)
@@ -124,6 +138,43 @@ class Fase(Base):
     descripcion = Column(Text, nullable=True)   # qué es la fase (editable)
     criterios   = Column(Text, nullable=True)   # qué debe pasar / tener el lead para estar aquí (editable)
 
+    # ── Qué pasa cuando un lead cae aquí. La FASE manda: antes esto estaba hardcodeado dentro
+    #    del bot (`es_buen_prospecto`) y no se podía configurar sin tocar código.
+    notificar      = Column(Boolean, default=False)  # avisar al directorio de contactos
+    recuperar      = Column(Boolean, default=False)  # incluir en el motor de recuperación (aún sin motor)
+    mensaje_cierre = Column(Text, nullable=True)     # lo manda el CÓDIGO al entrar el lead, no el modelo
+
+
+class ContactoNoLead(Base):
+    """Teléfonos que NO se tratan como prospectos: proveedores, el número del dueño, spam.
+
+    Es una tabla propia y no una bandera en el lead, a propósito: así la marca sobrevive a que se
+    oculte, se reinicie o se borre el lead. En aseguradora esto es por conversación y por eso el
+    contacto reaparece cuando se abre un caso nuevo.
+
+    Efectos: el bot no le contesta, sale del Kanban/Bandeja/Métricas/Resumen, pero su conversación
+    se sigue guardando y se ve en Historial. Reversible.
+    """
+    __tablename__ = "contactos_no_lead"
+
+    id         = Column(Integer, primary_key=True)
+    telefono   = Column(String, unique=True, index=True, nullable=False)
+    motivo     = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class ContactoAlerta(Base):
+    """Directorio de a quién se le avisa. Es una lista GLOBAL: cuando un lead cae en una fase con
+    la notificación encendida, el aviso va a todos los contactos activos de aquí."""
+    __tablename__ = "contactos_alerta"
+
+    id       = Column(Integer, primary_key=True)
+    nombre   = Column(String, nullable=False)
+    telefono = Column(String, unique=True, nullable=False)
+    activo   = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 
 class ContextoBot(Base):
     """Contexto que alimenta al bot. Lo escribe el equipo desde el panel; el bot lo lee en cada
@@ -133,6 +184,9 @@ class ContextoBot(Base):
     id         = Column(Integer, primary_key=True)
     titulo     = Column(String, nullable=False)
     contenido  = Column(Text, nullable=False)
+    # "dato"  = información del negocio (precios, cobertura, plazos) → el bot la usa para responder.
+    # "regla" = cómo debe comportarse → entra junto a las reglas duras, con peso de instrucción.
+    tipo       = Column(String, default="dato")
     activo     = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

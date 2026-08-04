@@ -77,6 +77,13 @@ CAPTURAR_LEAD_TOOL = {
                     "type": "string",
                     "description": "Solo si la persona ya no está interesada: por qué",
                 },
+                "solo_informacion": {
+                    "type": "boolean",
+                    "description": "true SOLO si la persona dice explícitamente que no busca "
+                                   "rentar ahora y únicamente quiere información, o si se niega "
+                                   "a contestar las preguntas del filtro. NO lo pongas solo "
+                                   "porque todavía no haya contestado: para eso está el silencio.",
+                },
             },
             "required": [],
         },
@@ -88,10 +95,13 @@ ALERTAR_ASESOR_TOOL = {
     "function": {
         "name": "alertar_asesor",
         "description": (
-            "Avisa a un asesor humano de EMA Rentals para que retome la conversación. Llámala "
-            "cuando el prospecto ya está listo para avanzar (quiere una propuesta o cotización, "
-            "pide hablar con una persona), o cuando ya no tengas nada nuevo que aportar y sea un "
-            "buen prospecto. El sistema avisa al equipo automáticamente."
+            "Pasa la conversación a un asesor humano ANTES de terminar las preguntas. Llámala "
+            "SOLO si el prospecto lo pide explícitamente: quiere hablar con una persona, insiste "
+            "en que le den precios, o se niega a seguir contestando. "
+            "NO la llames al terminar el cuestionario ni para despedirte: cuando ya tienes el "
+            "tipo de propiedad, su dato ligado y el tiempo de renta, el sistema pasa el prospecto "
+            "al asesor por su cuenta. Llamarla de más hace que se avise a un asesor con datos "
+            "incompletos."
         ),
         "parameters": {
             "type": "object",

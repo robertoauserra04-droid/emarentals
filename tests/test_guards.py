@@ -29,11 +29,21 @@ def test_apply_no_sobrecalifica_sin_datos():
     lead = EmaLead(phone="52111", estado="nuevo")
     apply_capturar_lead(lead, {"nivel_interes": "Alto"})
     # sin tipo de propiedad ni tiempo → no llega a calificado
-    assert lead.estado in ("nuevo", "interesado")
+    assert lead.estado in ("nuevo", "interesado_residencial")
     assert lead.es_buen_prospecto is False
 
 
 def test_apply_casa_va_a_residencial_bueno():
     lead = EmaLead(phone="52111", estado="interesado")
-    apply_capturar_lead(lead, {"tipo_propiedad": "casa", "tiempo_renta": "0-6"})
-    assert lead.estado == "residencial_bueno"   # casa siempre es buen prospecto
+    apply_capturar_lead(lead, {"tipo_propiedad": "casa", "recamaras": 3, "tiempo_renta": "12+"})
+    assert lead.estado == "residencial_bueno"   # casa + renta larga
+
+
+def test_apply_casa_sin_recamaras_no_califica():
+    """El bug que motivó el cambio: casa + tiempo bastaba para clasificar, notificar y apagar el
+    bot, aunque el prompt todavía tenía que preguntar las recámaras."""
+    lead = EmaLead(phone="52112", estado="nuevo")
+    apply_capturar_lead(lead, {"tipo_propiedad": "casa", "tiempo_renta": "12+"})
+    assert lead.estado == "interesado_residencial"
+    assert lead.es_buen_prospecto is False
+    assert lead.score_calif == 0

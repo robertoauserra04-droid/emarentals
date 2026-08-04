@@ -54,21 +54,70 @@ def test_apply_oficina_grande_va_a_oficina_bueno_tipo2():
     assert l.marca == "office"
 
 
-def test_apply_departamento_chico_va_a_low_priority():
+def test_apply_departamento_chico_va_a_baja_prioridad():
     l = EmaLead(phone="9", estado="nuevo")
     leads.apply_capturar_lead(l, {"tipo_propiedad": "departamento", "recamaras": 1, "tiempo_renta": "6-12"})
-    assert l.estado == "low_priority"   # completo pero no buen prospecto
+    assert l.estado == "residencial_baja"   # completo pero no llega al umbral
     assert l.es_buen_prospecto is False
 
 
-def test_apply_incompleto_no_califica():
+def test_apply_incompleto_va_a_la_antesala_de_su_giro():
     l = EmaLead(phone="10", estado="nuevo")
     leads.apply_capturar_lead(l, {"tipo_propiedad": "oficina"})   # falta m²/personas y tiempo
-    assert l.estado == "interesado"     # entró al pipeline pero sin calificar
+    assert l.estado == "interesado_oficina"
     assert l.es_buen_prospecto is False
 
 
-def test_apply_motivo_perdida_marca_perdido():
-    l = EmaLead(phone="11", estado="interesado")
+def test_apply_sin_tipo_de_propiedad_se_queda_en_nuevo():
+    """Sin saber el giro no hay carril: no se puede elegir entre las dos antesalas."""
+    l = EmaLead(phone="10b", estado="nuevo")
+    leads.apply_capturar_lead(l, {"nivel_interes": "Alto", "que_pregunto": "precios"})
+    assert l.estado == "nuevo"
+
+
+def test_apply_motivo_perdida_va_a_descartado():
+    l = EmaLead(phone="11", estado="interesado_residencial")
     leads.apply_capturar_lead(l, {"motivo_perdida": "solo comparaba precios"})
-    assert l.estado == "perdido"
+    assert l.estado == "descartado"
+
+
+# ─────────── Los tres niveles: umbral + plazo ───────────
+
+def _clasificar(**kw):
+    l = EmaLead(phone="n", estado="nuevo")
+    leads.apply_capturar_lead(l, kw)
+    return l.estado
+
+
+def test_umbral_cumplido_con_renta_larga_es_bueno():
+    assert _clasificar(tipo_propiedad="casa", recamaras=3, tiempo_renta="12+") == "residencial_bueno"
+    assert _clasificar(tipo_propiedad="oficina", oficina_m2=200, tiempo_renta="12+") == "oficina_bueno"
+
+
+def test_umbral_cumplido_con_renta_corta_es_nivel_medio():
+    assert _clasificar(tipo_propiedad="casa", recamaras=3, tiempo_renta="0-6") == "residencial_normal"
+    assert _clasificar(tipo_propiedad="oficina", oficina_m2=200, tiempo_renta="6-12") == "oficina_mid"
+
+
+def test_sin_umbral_es_baja_sin_importar_el_plazo():
+    assert _clasificar(tipo_propiedad="departamento", recamaras=1, tiempo_renta="12+") == "residencial_baja"
+    assert _clasificar(tipo_propiedad="oficina", oficina_m2=40, oficina_personas=5,
+                       tiempo_renta="12+") == "oficina_baja"
+
+
+def test_una_casa_nunca_cae_en_baja_prioridad():
+    """Regla del cliente: la casa siempre es buen prospecto, aunque sea chica y de plazo corto."""
+    for rec in (1, 2, 5):
+        for plazo in ("0-6", "6-12", "12+"):
+            fase = _clasificar(tipo_propiedad="casa", recamaras=rec, tiempo_renta=plazo)
+            assert fase in ("residencial_normal", "residencial_bueno"), (rec, plazo, fase)
+
+
+def test_solo_informacion_va_a_pregunton():
+    assert _clasificar(nivel_interes="Bajo", solo_informacion=True) == "pregunton"
+
+
+def test_solo_informacion_no_pisa_un_cuestionario_completo():
+    """Si ya contestó todo, mandan los datos y no la etiqueta de curioso."""
+    assert _clasificar(tipo_propiedad="casa", recamaras=3, tiempo_renta="12+",
+                       solo_informacion=True) == "residencial_bueno"

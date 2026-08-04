@@ -10,6 +10,7 @@ from app.database import get_db
 from app.models.lead import ContextoBot
 from app.models.user import User
 from app.services import auth
+from app.services import contexto as contexto_svc
 
 router = APIRouter(prefix="/api/contexto", tags=["contexto"])
 
@@ -19,11 +20,17 @@ _ver = auth.requiere_seccion("contexto")
 class ContextoIn(BaseModel):
     titulo: str
     contenido: str
+    tipo: str = "dato"      # "dato" (información) | "regla" (comportamiento)
     activo: bool = True
 
 
+def _norm_tipo(v: str | None) -> str:
+    return v if v in contexto_svc.TIPOS else "dato"
+
+
 def _dto(c: ContextoBot) -> dict:
-    return {"id": c.id, "titulo": c.titulo, "contenido": c.contenido, "activo": bool(c.activo),
+    return {"id": c.id, "titulo": c.titulo, "contenido": c.contenido,
+            "tipo": _norm_tipo(c.tipo), "activo": bool(c.activo),
             "updated_at": c.updated_at.isoformat() if c.updated_at else None}
 
 
@@ -37,7 +44,8 @@ def listar(db: Session = Depends(get_db), user: User = Depends(_ver)):
 def crear(data: ContextoIn, db: Session = Depends(get_db), user: User = Depends(auth.solo_dueno)):
     if not data.titulo.strip() or not data.contenido.strip():
         raise HTTPException(422, "Título y contenido son obligatorios")
-    c = ContextoBot(titulo=data.titulo.strip(), contenido=data.contenido.strip(), activo=data.activo)
+    c = ContextoBot(titulo=data.titulo.strip(), contenido=data.contenido.strip(),
+                    tipo=_norm_tipo(data.tipo), activo=data.activo)
     db.add(c)
     db.commit()
     return _dto(c)
@@ -50,6 +58,7 @@ def editar(cid: int, data: ContextoIn, db: Session = Depends(get_db), user: User
         raise HTTPException(404, "Contexto no encontrado")
     c.titulo = data.titulo.strip()
     c.contenido = data.contenido.strip()
+    c.tipo = _norm_tipo(data.tipo)
     c.activo = data.activo
     db.commit()
     return _dto(c)

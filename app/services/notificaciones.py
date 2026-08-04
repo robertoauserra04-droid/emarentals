@@ -1,8 +1,11 @@
-"""Alerta a los administradores de EMA Rentals cuando entra un BUEN LEAD.
+"""Alerta al directorio de contactos cuando un lead cae en una fase que notifica.
 
-Patrón portado de psicologia (`bot/handler._alertar_psicologa` → `notificaciones.enviar`):
-cadena de respaldo plantilla Kapso → texto (si hay ventana 24h) → email → log. Así el aviso no
-muere en silencio si una plantilla no está aprobada.
+La FASE decide SI se avisa (su toggle de Notificación); a quién se le avisa es una lista global
+(`ContactoAlerta`), la misma para todas las fases. Si el directorio está vacío se cae a
+`ALERTA_ADMIN_TELEFONOS` del .env, para no dejar el aviso sin destino.
+
+Cadena de respaldo (patrón portado de psicologia): plantilla Kapso → texto (si hay ventana 24h)
+→ email → log. Así el aviso no muere en silencio si una plantilla no está aprobada.
 
 NO es una conversación con prospecto: se manda con db=None (no se persiste en la bandeja).
 """
@@ -17,18 +20,43 @@ def _telefonos_admin() -> list[str]:
     return [t.strip() for t in (settings.alerta_admin_telefonos or "").split(",") if t.strip()]
 
 
-def _resumen_lead(lead) -> str:
+def _destinos(db) -> list[str]:
+    """El directorio de contactos; si está vacío, los teléfonos del .env."""
+    if db is not None:
+        from app.routers.fases import telefonos_alerta
+        contactos = telefonos_alerta(db)
+        if contactos:
+            return contactos
+        logger.warning("[alerta] el directorio de contactos está vacío: se usa "
+                       "ALERTA_ADMIN_TELEFONOS")
+    return _telefonos_admin()
+
+
+def _resumen_lead(lead, incompleto: bool = False, fase=None) -> str:
     """Texto legible del lead para el aviso al asesor."""
+    from app.services.bot import leads as leads_svc
+
     canal = {"whatsapp": "WhatsApp", "instagram": "Instagram",
              "messenger": "Messenger"}.get(lead.source or "whatsapp", lead.source)
     tipo = {"oficina": "Oficina", "departamento": "Departamento",
             "casa": "Casa"}.get(lead.tipo_propiedad or "", lead.tipo_propiedad or "sin definir")
+    if incompleto:
+        falta = leads_svc.falta_del_cuestionario(lead)
+        encabezado = ("Pidió hablar con un asesor — cuestionario INCOMPLETO"
+                      + (f", falta: {', '.join(falta)}" if falta else ""))
+    else:
+        encabezado = f"Nuevo prospecto calificado por {canal}"
     partes = [
-        f"Nuevo prospecto calificado por {canal}",
+        encabezado,
         f"Nombre: {lead.name or 'sin nombre'}",
         f"Contacto: {lead.phone}",
+        f"Canal: {canal}",
         f"Tipo: {tipo}",
     ]
+    # La fase va en el texto libre y no en la plantilla de WhatsApp: meterla en la plantilla
+    # obligaría a reeditarla y reaprobarla en Meta.
+    if fase is not None:
+        partes.append(f"Clasificación: {fase.nombre}")
     if lead.tipo_propiedad == "oficina":
         det = []
         if lead.oficina_m2:
@@ -38,7 +66,8 @@ def _resumen_lead(lead) -> str:
         if det:
             partes.append("Oficina: " + ", ".join(det))
         if lead.tipo_oficina:
-            partes.append("Categoría: " + ("Tipo 1" if lead.tipo_oficina == "tipo1" else "Tipo 2"))
+            partes.append("Categoría: " + leads_svc.TIPO_OFICINA_LBL.get(
+                lead.tipo_oficina, lead.tipo_oficina))
     elif lead.recamaras is not None:
         partes.append(f"Recámaras: {lead.recamaras}")
     if lead.tiempo_renta:
@@ -48,17 +77,21 @@ def _resumen_lead(lead) -> str:
         partes.append(f"Zona: {lead.zona}")
     if lead.resumen:
         partes.append(f"Resumen: {lead.resumen}")
-    partes.append(f"Score: {lead.score_calif or 0}/100")
+    d = leads_svc.desglose_score(lead)
+    if d["completo"]:
+        partes.append(f"Prioridad: {d['total']}/100 "
+                      f"(tamaño {d['tamano']} · plazo {d['plazo']} · tipo {d['tipo']})")
     return "\n".join(partes)
 
 
-def alertar_admin(lead) -> bool:
-    """Avisa a los administradores de un buen lead. Devuelve True si al menos un canal salió.
+def alertar_admin(lead, db=None, fase=None, incompleto: bool = False) -> bool:
+    """Avisa al directorio de contactos. Devuelve True si al menos un canal salió.
 
-    Idempotencia: el caller (handler) marca `lead.alertado_at` para no repetir el aviso.
+    Idempotencia: el caller (`fases_acciones`) marca `lead.alertado_at` para no repetir el aviso.
+    `incompleto=True` = el prospecto pidió un asesor sin terminar el cuestionario.
     """
-    telefonos = _telefonos_admin()
-    resumen = _resumen_lead(lead)
+    telefonos = _destinos(db)
+    resumen = _resumen_lead(lead, incompleto=incompleto, fase=fase)
     algun_envio = False
 
     for tel in telefonos:

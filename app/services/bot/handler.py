@@ -2,20 +2,21 @@
 
 Flujo: registrar lead SIEMPRE → decidir si el bot responde (toggles = coexistencia) → construir
 historial + prompt → generate_reply con tools (capturar_lead / alertar_asesor) → fact_guard → si
-el lead quedó CALIFICADO (buen lead), alertar al admin UNA vez y ceder al humano → burbujas → enviar.
+el CUESTIONARIO YA TERMINÓ (o el prospecto pidió un humano), ceder al asesor y alertar → burbujas.
+
+Regla de oro: nada se clasifica, se notifica ni se apaga hasta que `cuestionario_completo()` sea
+True. La única excepción es que el prospecto pida hablar con una persona.
 
 EMA Rentals NO agenda, NO cotiza, NO maneja propiedades. Solo filtra leads y alerta.
 """
 import logging
-from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.ema_config import BOT
-from app.models.lead import AppSetting, EmaLead
+from app.models.lead import AppSetting
 from app.models.messaging import Conversation
-from app.services import notificaciones
 from app.services.bot import ai, leads
 from app.services.bot.guards import fact_guard
 from app.services.bot.prompt import build_system_prompt
@@ -83,6 +84,13 @@ def handle_inbound(db: Session, phone: str, text: str, name: str | None = None,
         logger.warning("[bot] bot global desactivado, saliendo")
         return
 
+    # Contacto marcado como "no es lead" (proveedor, número del dueño, spam): el bot nunca le
+    # contesta, ni aunque escriba de nuevo. El mensaje ya quedó guardado arriba.
+    from app.services import visibilidad
+    if visibilidad.es_no_lead(db, phone):
+        logger.warning("[bot] %s está marcado como 'no es lead', saliendo", phone)
+        return
+
     # Coexistencia: si un asesor tomó la conversación (bot_active=False), el bot calla.
     conv = db.query(Conversation).filter(Conversation.phone == phone).first()
     if conv is not None and not conv.bot_active:
@@ -96,8 +104,9 @@ def handle_inbound(db: Session, phone: str, text: str, name: str | None = None,
     es_primer_contacto = lead.message_count == 1
     # Contexto vivo que el equipo subió desde el panel (se lee en cada turno).
     from app.services import contexto
-    grounding = contexto.grounding_activo(db)
-    system = build_system_prompt(lead, es_primer_contacto=es_primer_contacto, grounding=grounding)
+    datos, reglas = contexto.grounding_activo(db)
+    system = build_system_prompt(lead, es_primer_contacto=es_primer_contacto,
+                                 datos=datos, reglas=reglas)
 
     actions = {"alertar": False, "motivo": ""}
 
@@ -130,18 +139,27 @@ def handle_inbound(db: Session, phone: str, text: str, name: str | None = None,
     if blocked:
         logger.warning("[bot] fact_guard bloqueó una cifra inventada para %s", phone)
 
-    # BUEN PROSPECTO (cayó en Residencial/Oficina Bueno) o el bot pidió asesor → alerta + cede.
-    if actions["alertar"] or lead.es_buen_prospecto:
+    # ¿El bot ya terminó de preguntar? Hasta entonces NO se clasifica, NO se notifica y NO se
+    # apaga el bot. Antes esto colgaba de `lead.es_buen_prospecto`, que se ponía en True con solo
+    # saber el tipo de propiedad: por eso el bot cerraba y avisaba antes de la última pregunta.
+    completo = leads.cuestionario_completo(lead)
+    pidio_humano = actions["alertar"]      # el prospecto pidió una persona, precios, o se negó
+
+    # La fase se resuelve ANTES de decidir la alerta: es la fase la que manda (Tanda 2).
+    # Si el admin borró la fase destino, cae a una equivalente por rol.
+    from app.routers.fases import resolver_clave
+    lead.estado = resolver_clave(db, lead.estado)
+
+    if completo or pidio_humano:
         lead.escalated = True
-        _alertar_una_vez(db, lead)
         # "Califica y entrega": el bot cede la conversación al asesor humano.
         lead.bot_active = False
         if conv is not None:
             conv.bot_active = False
-
-    # Asegurar que la fase asignada exista (si el admin borró la destino, cae a una equivalente).
-    from app.routers.fases import resolver_clave
-    lead.estado = resolver_clave(db, lead.estado)
+        # Qué se notifica, a quién y con qué mensaje de cierre lo decide LA FASE.
+        from app.services import fases_acciones
+        fases_acciones.al_entrar_a_fase(db, lead, incompleto=not completo,
+                                        canal=channel, enviar=enviar)
 
     db.commit()
 
@@ -161,14 +179,4 @@ def handle_inbound(db: Session, phone: str, text: str, name: str | None = None,
         logger.error("[bot] error enviando mensaje: %s", e)
 
 
-def _alertar_una_vez(db: Session, lead: EmaLead) -> None:
-    """Dispara la alerta al admin SOLO la primera vez que el lead califica (idempotente)."""
-    if lead.alertado_at is not None:
-        return
-    try:
-        notificaciones.alertar_admin(lead)
-        lead.alertado_at = datetime.now(timezone.utc)
-        logger.warning("[bot] alerta de buen lead enviada al admin: %s (score %s)",
-                       lead.phone, lead.score_calif)
-    except Exception as e:  # noqa: BLE001
-        logger.error("[bot] no se pudo alertar al admin: %s", e)
+# El aviso al admin vive ahora en `app/services/fases_acciones.py`: lo decide la fase, no el bot.

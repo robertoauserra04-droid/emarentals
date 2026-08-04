@@ -21,3 +21,10 @@ def db():
         yield s
     finally:
         s.close()
+
+
+@pytest.fixture
+def usuario():
+    """Dueño autenticado, para llamar los endpoints como funciones sin levantar HTTP."""
+    from app.models.user import User
+    return User(id=1, email="admin@ema-rentals.local", nombre="Admin", rol="dueno", activo=True)

@@ -12,7 +12,7 @@ from app.database import get_db
 from app.models.lead import EmaLead
 from app.models.messaging import ChatMessage, Conversation, MessageDirection
 from app.models.user import User
-from app.services import auth, messaging_out
+from app.services import auth, messaging_out, visibilidad
 
 router = APIRouter(prefix="/api/conversaciones", tags=["conversaciones"])
 
@@ -29,9 +29,14 @@ def _mis_telefonos(db: Session, user: User) -> set[str] | None:
 def listar(db: Session = Depends(get_db), user: User = Depends(auth.current_user)):
     permitidos = _mis_telefonos(db, user)
     leads = {l.phone: l for l in db.query(EmaLead).all()}
+    # Fuera de la bandeja: leads ocultos y contactos marcados "no es lead". Su conversación sigue
+    # guardada — se consulta desde Historial.
+    fuera = {p for p, l in leads.items() if l.oculto} | visibilidad.telefonos_no_lead(db)
     out = []
     for c in db.query(Conversation).order_by(Conversation.last_message_at.desc()).all():
         if permitidos is not None and c.phone not in permitidos:
+            continue
+        if c.phone in fuera:
             continue
         total = db.query(ChatMessage).filter(ChatMessage.phone == c.phone).count()
         lead = leads.get(c.phone)

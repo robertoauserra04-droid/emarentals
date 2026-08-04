@@ -50,9 +50,11 @@
     color:var(--muted);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
   .col h3 span{background:var(--cream);color:var(--brand-d);border-radius:20px;padding:1px 9px;font-size:11px}
   .col .body{padding:10px;display:flex;flex-direction:column;gap:9px;min-height:40px}
-  .colsub{font-size:11px;color:var(--muted);padding:7px 14px 3px;line-height:1.4;cursor:pointer}
-  .colinfo{color:var(--brand);font-weight:700;white-space:nowrap}
-  .colcrit{font-size:11px;color:var(--txt);background:var(--cream);margin:2px 10px 0;padding:8px 11px;border-radius:8px;line-height:1.45}
+  .colsub{font-size:11px;color:var(--muted);padding:7px 14px 3px;line-height:1.4}
+  .colinfo{width:18px;height:18px;padding:0;line-height:1;border-radius:50%;cursor:pointer;
+    border:1px solid currentColor;background:transparent;color:inherit;opacity:.4;
+    font-size:11px;font-weight:700;font-style:italic}
+  .colinfo:hover{opacity:1}
   .lead{background:#fff;border:1px solid var(--line);border-radius:11px;padding:12px;cursor:pointer;
     box-shadow:var(--shadow);transition:transform .1s,border-color .15s}
   .lead:hover{border-color:var(--tan);transform:translateY(-1px)}
@@ -111,6 +113,105 @@
   .scorebox .exp{color:var(--muted);font-size:12px;margin-top:3px;line-height:1.45}
   .scorebar{height:8px;border-radius:6px;background:var(--cream);overflow:hidden;margin-top:12px}
   .scorebar > i{display:block;height:100%;border-radius:6px}
+  .scoreparts{display:flex;gap:14px;margin-top:11px;flex-wrap:wrap;font-size:11.5px;color:var(--muted)}
+  .scoreparts span{display:inline-flex;align-items:baseline;gap:4px}
+  .scoreparts b{font-size:13px;color:var(--txt);font-weight:700}
+  .scoreparts i{font-style:normal;opacity:.6}
+  .ctxtipo{font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;
+    padding:2px 8px;border-radius:20px;border:1px solid}
+  .ctxtipo.t-dato{color:var(--muted);border-color:var(--line);background:var(--cream)}
+  .ctxtipo.t-regla{color:var(--brand-d);border-color:var(--tan);background:#f3ece2}
+
+  /* ── Fases: tabla con toggles ── */
+  .fasesbox{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px 20px;box-shadow:var(--shadow)}
+  .fasehead,.fmain{display:grid;grid-template-columns:26px 230px 1fr 152px 152px 74px;gap:10px;align-items:center}
+  .fasehead{padding:0 4px 8px;border-bottom:1px solid var(--line);font-size:10.5px;font-weight:700;
+    letter-spacing:.05em;color:var(--muted)}
+  .faserow{border-bottom:1px solid var(--line);background:#fff}
+  .faserow:last-child{border-bottom:none}
+  .faserow.arrastrando{opacity:.4}
+  .fmain{padding:9px 4px}
+  .fdrag{cursor:grab;color:var(--muted);opacity:.5;font-size:15px;text-align:center;user-select:none}
+  .fdrag:active{cursor:grabbing}
+  .fdot{width:22px;height:22px;padding:1px;margin:0;border-radius:5px;border:1px solid var(--line);cursor:pointer}
+  .ftitulo{display:flex;align-items:center;gap:6px;min-width:0}
+  .ftitulo input{margin:0;font-weight:600;border-color:transparent;background:transparent;padding:5px 7px}
+  .ftitulo input:hover:not(:disabled){border-color:var(--line);background:#fff}
+  .fdesc input{margin:0;border-color:transparent;background:transparent;padding:5px 7px;
+    font-size:12.5px;color:var(--muted);text-overflow:ellipsis}
+  .fdesc input:hover:not(:disabled){border-color:var(--line);background:#fff}
+  .finfo{width:17px;height:17px;flex:0 0 17px;border-radius:50%;border:1px solid var(--line);
+    background:var(--cream);color:var(--muted);font-size:10.5px;font-weight:700;font-style:italic;
+    line-height:1;padding:0;opacity:.45;cursor:pointer}
+  .finfo:hover{opacity:1;color:var(--brand-d);border-color:var(--tan)}
+  .fpill{width:100%;display:inline-flex;align-items:center;justify-content:center;gap:7px;
+    font-size:11.5px;font-weight:600;padding:7px 10px;border-radius:9px;cursor:pointer;
+    background:#fff;border:1px solid var(--line);color:var(--muted)}
+  .fpill i{width:7px;height:7px;border-radius:50%;background:var(--line);display:inline-block}
+  .fpill.on.p-noti{background:#eef5f0;border-color:var(--ok);color:var(--ok)}
+  .fpill.on.p-noti i{background:var(--ok)}
+  .fpill.on.p-recu{background:#f7f0e3;border-color:var(--warn);color:var(--warn)}
+  .fpill.on.p-recu i{background:var(--warn)}
+  .facts{display:flex;gap:4px;justify-content:flex-end}
+  .flbl{display:block;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+    color:var(--muted);margin-bottom:5px}
+
+  /* ── Recuadro "A quién avisar" (look del de Números sin bot de aseguradora) ── */
+  .cbadge{display:inline-block;font-size:11px;font-weight:700;color:var(--muted);
+    background:var(--cream);border:1px solid var(--line);border-radius:20px;padding:1px 9px;
+    vertical-align:middle;margin-left:5px}
+  .addcontacto{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+  .addcontacto input{margin:0;flex:1;min-width:130px;font-size:12.5px}
+  .ctblwrap{border:1px solid var(--line);border-radius:9px;overflow:hidden;max-height:240px;overflow-y:auto}
+  .ctbl{width:100%;border-collapse:collapse;font-size:13px}
+  .ctbl th{text-align:left;font-size:10.5px;font-weight:700;letter-spacing:.05em;color:var(--muted);
+    padding:8px 11px;background:var(--cream);border-bottom:1px solid var(--line);
+    position:sticky;top:0}
+  .ctbl td{padding:9px 11px;border-bottom:1px solid var(--line)}
+  .ctbl tr:last-child td{border-bottom:none}
+  .ctacts{text-align:right}
+  .cvacio{text-align:center;color:var(--muted);font-size:12.5px;padding:18px 0}
+  .favi{background:#f7f0e3;border:1px solid var(--warn);color:#8a5f22;border-radius:9px;
+    padding:8px 11px;font-size:12px;margin-bottom:9px}
+  .nuevaetapa{width:100%;margin-top:14px;border-style:dashed}
+  .stbl{width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:10px}
+  .stbl th{text-align:left;font-size:10.5px;letter-spacing:.04em;color:var(--muted);padding:5px 8px}
+  .stbl td{padding:5px 8px;border-top:1px solid var(--line)}
+  .stbl td:last-child{text-align:right;font-weight:700;width:52px}
+  .stbl.resalta{background:#f6f2ec;border-radius:9px}
+  /* ── Kanban: ocultar tarjeta + arrastrar entre columnas ── */
+  .lead{position:relative}
+  .lead .ocultar{position:absolute;top:5px;right:5px;width:19px;height:19px;padding:0;line-height:1;
+    border-radius:50%;border:none;background:transparent;color:var(--muted);font-size:15px;
+    opacity:0;cursor:pointer;transition:opacity .12s}
+  .lead:hover .ocultar{opacity:.45}
+  .lead .ocultar:hover{opacity:1;background:var(--cream);color:var(--hot)}
+  .lead.arrastrando{opacity:.4}
+  .col .body.destino{background:#ffffff8c;outline:2px dashed var(--tan);outline-offset:-4px;border-radius:9px}
+
+  /* ── Historial ── */
+  .hbar{display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+  .hbar input{margin:0;max-width:280px}
+  .hchip{font-size:11.5px;padding:6px 12px;border-radius:20px;background:#fff;
+    border:1px solid var(--line);color:var(--muted);cursor:pointer}
+  .hchip.on{background:var(--cream);border-color:var(--tan);color:var(--brand-d);font-weight:600}
+  .htbl{width:100%;border-collapse:collapse;font-size:13px}
+  .htbl th{text-align:left;font-size:10.5px;letter-spacing:.05em;color:var(--muted);
+    padding:7px 9px;border-bottom:1px solid var(--line)}
+  .htbl td{padding:9px;border-bottom:1px solid var(--line);vertical-align:middle}
+  .htbl tr:last-child td{border-bottom:none}
+  .hacts{text-align:right;white-space:nowrap}
+  .hest{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px;border:1px solid}
+  .hest.e-activo{color:var(--ok);border-color:var(--ok);background:#eef5f0}
+  .hest.e-oculto{color:var(--muted);border-color:var(--line);background:var(--cream)}
+  .hest.e-nolead{color:var(--hot);border-color:var(--hot);background:#f7ece7}
+  .hpag{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:14px;font-size:12px}
+  @media(max-width:900px){
+    .htbl{display:block;overflow-x:auto}
+    .fasehead{display:none}
+    .fmain{grid-template-columns:26px 1fr;grid-auto-rows:auto;row-gap:6px}
+    .ctbl{display:block;overflow-x:auto}
+  }
   .sec-lbl{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700;margin:18px 0 8px}
   .kv{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:var(--shadow)}
   .kv .row{display:flex;justify-content:space-between;gap:14px;padding:11px 15px;border-bottom:1px solid var(--line);font-size:13.5px}
@@ -215,6 +316,7 @@
   <main>
     <div id="kanban"></div>
     <div id="inbox" style="display:none"></div>
+    <div id="historial" style="display:none"></div>
     <div id="resumen" style="display:none"></div>
     <div id="metricas" style="display:none"></div>
     <div id="contexto" style="display:none"></div>
@@ -263,7 +365,7 @@ async function boot(){
   await cargarFases();
   document.getElementById("who").textContent = (ME.nombre||ME.email) + " · " + ME.rol;
   // Nav gateado por secciones
-  const tabs = [["leads","Leads"],["bandeja","Bandeja"],["resumen","Resumen"],["metricas","Métricas"],["contexto","Contexto"],["fases","Fases"],["usuarios","Usuarios"]];
+  const tabs = [["leads","Leads"],["bandeja","Bandeja"],["historial","Historial"],["resumen","Resumen"],["metricas","Métricas"],["contexto","Contexto"],["fases","Fases"],["usuarios","Usuarios"]];
   const nav = document.getElementById("nav"); nav.innerHTML="";
   for(const [sec,label] of tabs){
     if(!puede(sec)) continue;
@@ -300,12 +402,13 @@ async function resetDemo(){
 }
 
 function show(sec){
-  ["kanban","inbox","resumen","metricas","contexto","fases","usuarios"].forEach(id=>document.getElementById(id).style.display="none");
-  const map={leads:"kanban",bandeja:"inbox",resumen:"resumen",metricas:"metricas",contexto:"contexto",fases:"fases",usuarios:"usuarios"};
+  ["kanban","inbox","historial","resumen","metricas","contexto","fases","usuarios"].forEach(id=>document.getElementById(id).style.display="none");
+  const map={leads:"kanban",bandeja:"inbox",historial:"historial",resumen:"resumen",metricas:"metricas",contexto:"contexto",fases:"fases",usuarios:"usuarios"};
   document.getElementById(map[sec]||"kanban").style.display="block";
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle("active", b.dataset.sec===sec));
   if(sec==='leads') loadKanban();
   else if(sec==='bandeja') loadInbox();
+  else if(sec==='historial') loadHistorial();
   else if(sec==='resumen') loadResumen();
   else if(sec==='metricas') loadMetricas();
   else if(sec==='contexto') loadContexto();
@@ -315,6 +418,8 @@ function show(sec){
 
 // Fases (columnas del kanban) configurables: nombre + color se leen en vivo.
 let FASES = [], FASE_LBL = {}, FASE_COLOR = {};
+// Metadatos de cada fase tal como los manda /api/leads/pipeline: los usa el panel de la ⓘ.
+let FASES_META = {};
 const ESTADO_LABEL = new Proxy({}, {get:(_,k)=> FASE_LBL[k] || k});
 const COL_COLOR = new Proxy({}, {get:(_,k)=> FASE_COLOR[k] || "#8c725d"});
 async function cargarFases(){
@@ -325,7 +430,10 @@ async function cargarFases(){
 const NEC_TXT = {pieza_suelta:"pieza suelta", paquete:"paquete", casa_completa:"casa completa", oficina_completa:"oficina completa"};
 const TIPO_LBL = {oficina:"Oficina", departamento:"Departamento", casa:"Casa"};
 const TIEMPO_LBL = {"0-6":"6 meses o menos", "6-12":"6 a 12 meses", "12+":"12 meses o más"};
-const TIPOOF_LBL = {tipo1:"Tipo 1 (hasta 1 año)", tipo2:"Tipo 2 (más de 1 año)"};
+// Las claves internas siguen siendo tipo1/tipo2; lo que cambia es cómo se leen ("Tipo 1" no le
+// decía nada a nadie en EMA). Espejo de TIPO_OFICINA_LBL en app/services/bot/leads.py.
+const TIPOOF_LBL = {tipo1:"Oficina · renta corta (hasta 1 año)", tipo2:"Oficina · renta larga (12 meses o más)"};
+const TIPOOF_CORTO = {tipo1:"renta corta", tipo2:"renta larga"};
 function detalleProp(l){
   if(l.tipo_propiedad==='oficina'){
     const d=[]; if(l.oficina_m2)d.push(l.oficina_m2+" m²"); if(l.oficina_personas)d.push(l.oficina_personas+" personas");
@@ -344,12 +452,14 @@ const PERFIL = {
   sin_clasificar:   {lbl:"Sin clasificar",    emoji:"⬜", color:"#c3bcb3"},
 };
 
-// Clasificación del score en etiqueta + color
+// Score de PRIORIDAD (no de calidad): ordena leads dentro de una columna. 0 = cuestionario
+// incompleto. Bandas alineadas con la ponderación de app/services/bot/leads.py (45/35/20).
 function scoreInfo(s){
   s = s||0;
-  if(s>=65) return {lbl:"Buen lead", cls:"s-hi", color:"var(--ok)"};
-  if(s>=45) return {lbl:"Medio",     cls:"s-mid", color:"var(--warn)"};
-  return {lbl:"Explorando", cls:"s-low", color:"var(--muted)"};
+  if(s===0)  return {lbl:"Sin clasificar", cls:"s-low", color:"var(--muted)"};
+  if(s>=75)  return {lbl:"Prioridad alta", cls:"s-hi",  color:"var(--ok)"};
+  if(s>=50)  return {lbl:"Prioridad media",cls:"s-mid", color:"var(--warn)"};
+  return {lbl:"Prioridad baja", cls:"s-low", color:"var(--muted)"};
 }
 function razonesLead(l){
   const r=[];
@@ -358,7 +468,7 @@ function razonesLead(l){
   if(l.tipo_propiedad==='oficina'){
     if((l.oficina_m2||0)>=100) r.push(l.oficina_m2+" m²");
     if((l.oficina_personas||0)>=20) r.push(l.oficina_personas+" personas");
-    if(l.tipo_oficina) r.push(l.tipo_oficina==='tipo1'?"Tipo 1":"Tipo 2");
+    if(l.tipo_oficina) r.push(TIPOOF_CORTO[l.tipo_oficina]||"");
   }
   if(l.tiempo_renta==='12+') r.push("renta de 12+ meses");
   return r;
@@ -369,33 +479,38 @@ async function loadKanban(){
   cont.innerHTML = '<div class="muted">Cargando…</div>';
   const d = await (await api("/api/leads/pipeline")).json();
   // Refrescar nombres/colores de fase por si el admin los cambió.
-  for(const [k,v] of Object.entries(d.fases||{})){ FASE_LBL[k]=v.nombre; FASE_COLOR[k]=v.color; }
+  FASES_META = d.fases || {};
+  for(const [k,v] of Object.entries(FASES_META)){ FASE_LBL[k]=v.nombre; FASE_COLOR[k]=v.color; }
   LEADS_BY_PHONE = {};
   let html = '<div class="board">';
   for(const est of d.columnas){
     const arr = d.leads[est]||[];
     const cc = COL_COLOR[est] || "#8c725d";
-    const meta = (d.fases||{})[est] || {};
-    const sub = (meta.descripcion || meta.criterios)
-      ? `<div class="colsub" onclick="const n=this.nextElementSibling; if(n)n.style.display=(n.style.display==='block'?'none':'block')">${h(meta.descripcion||'')} ${meta.criterios?'<span class="colinfo">ⓘ criterios</span>':''}</div>`
-        + (meta.criterios?`<div class="colcrit" style="display:none"><b>Para estar aquí:</b> ${h(meta.criterios)}</div>`:'')
-      : '';
+    const meta = FASES_META[est] || {};
+    const sub = meta.descripcion ? `<div class="colsub">${h(meta.descripcion)}</div>` : '';
     html += `<div class="col" style="border:1px solid ${cc}59;border-top:3px solid ${cc};background:${cc}12">
       <h3 style="color:${cc};border-bottom-color:${cc}33"><span style="display:inline-flex;align-items:center;gap:7px">
         <i style="width:9px;height:9px;border-radius:50%;background:${cc};display:inline-block"></i>${ESTADO_LABEL[est]||est}</span>
-      <span style="background:${cc}26;color:${cc}">${arr.length}</span></h3>${sub}<div class="body">`;
+      <span style="display:inline-flex;align-items:center;gap:6px">
+        <button class="colinfo" title="Criterios, mensaje de cierre y cómo se calcula la prioridad"
+                onclick="verFaseInfo('${h(est)}')">i</button>
+        <span style="background:${cc}26;color:${cc}">${arr.length}</span></span></h3>${sub}<div class="body" data-fase="${h(est)}">`;
     for(const l of arr){
       LEADS_BY_PHONE[l.phone]=l;
       const si = scoreInfo(l.score_calif);
       const buen = l.es_buen_prospecto ? '<span class="badge b-good">BUEN PROSPECTO</span> ' : '';
       const tp = l.tipo_propiedad ? `<span class="b-ch">${TIPO_LBL[l.tipo_propiedad]}</span>` : '';
-      const ofi = (l.tipo_propiedad==='oficina' && l.tipo_oficina) ? `<span class="b-tipo">${l.tipo_oficina==='tipo1'?'Tipo 1':'Tipo 2'}</span>` : '';
+      const ofi = (l.tipo_propiedad==='oficina' && l.tipo_oficina) ? `<span class="b-tipo">${TIPOOF_CORTO[l.tipo_oficina]||''}</span>` : '';
       const ch = l.source ? `<span class="b-ch">${h(l.source)}</span>` : '';
       const bits = [detalleProp(l), TIEMPO_LBL[l.tiempo_renta], l.zona].filter(Boolean).map(h).join(" · ");
       const pf = PERFIL[l.perfil||'sin_clasificar'];
       const perfilTag = (l.perfil && l.perfil!=='sin_clasificar')
         ? `<div style="margin-top:7px"><span class="perfilchip" style="background:${pf.color}22;color:${pf.color};border:1px solid ${pf.color}55">${pf.emoji} ${pf.lbl}${l.horas_estimadas?(' · '+l.horas_estimadas+'h'):''}</span></div>` : '';
-      html += `<div class="lead" onclick="openPerfil('${h(l.phone)}')">
+      // stopPropagation en el botón: sin él, el clic burbujea y abre el drawer.
+      html += `<div class="lead" draggable="true" data-id="${l.id}" data-phone="${h(l.phone)}"
+                    onclick="openPerfil('${h(l.phone)}')">
+        <button class="ocultar" title="Quitar del tablero (se conserva en Historial)"
+                onclick="event.stopPropagation();ocultarLead(${l.id},'${h(l.name||l.phone)}')">×</button>
         <div class="n">${buen}${h(l.name||l.phone)}</div>
         <div class="meta">${tp}${ofi}${ch}<br>${bits||'<span class="muted">sin datos aún</span>'}</div>
         ${perfilTag}
@@ -405,6 +520,176 @@ async function loadKanban(){
   }
   html += '</div>';
   cont.innerHTML = html;
+  activarArrastreLeads();
+}
+
+// Panel de la ⓘ de cada columna. Aquí viven los criterios y el mensaje de cierre de la fase
+// (la pantalla de Fases solo lleva los dos toggles), más cómo se reparte el score.
+// Las tablas del score vienen de /api/fases/score-info, que las lee de las MISMAS constantes que
+// hacen el cálculo, así que el panel no puede desincronizarse del código.
+async function verFaseInfo(clave){
+  const meta = FASES_META[clave]; if(!meta) return;
+  if(!SCORE_INFO) SCORE_INFO = await (await api("/api/fases/score-info")).json();
+  const s = SCORE_INFO, admin = ME.rol === "dueno", esOficina = clave.includes("oficina");
+
+  const filaOf = s.tamano.oficina.map(o=>`<tr><td>${o.m2?('≥'+o.m2+' m² o ≥'+o.personas+' personas'):'menor'}</td><td>${o.pts}</td></tr>`).join("");
+  const filaRec = s.tamano.recamaras.map(o=>`<tr><td>≥${o.recamaras} recámaras</td><td>${o.pts}</td></tr>`).join("");
+  const tPlazo = Object.entries(s.plazo.tabla).map(([k,v])=>`<tr><td>${TIEMPO_LBL[k]||k}</td><td>${v}</td></tr>`).join("");
+  const tTipo = Object.entries(s.tipo.tabla).map(([k,v])=>`<tr><td>${TIPO_LBL[k]||k}</td><td>${v}</td></tr>`).join("");
+  const campo = (id,val,rows,ph)=> admin
+    ? `<textarea id="${id}" rows="${rows}" placeholder="${ph}">${h(val||'')}</textarea>`
+    : `<div class="kv"><div class="row"><span class="v ${val?'':'empty'}">${val?h(val):'—'}</span></div></div>`;
+
+  document.getElementById("drawer").innerHTML = `
+    <div class="dhead">
+      <div><h2>${h(meta.nombre)}</h2>
+        <div class="sub">${h(meta.descripcion||'Sin descripción')}</div></div>
+      <button class="x" onclick="closeDrawer()">&times;</button>
+    </div>
+    <div class="dbody">
+      <div class="sec-lbl">Criterios de entrada</div>
+      <p class="muted" style="font-size:12px;margin:0 0 6px">Qué debe tener el lead para caer en esta etapa.</p>
+      ${campo("fi_crit", meta.criterios, 2, "Ej. Casa, o departamento de 2 o más recámaras, con renta de 12 meses o más.")}
+
+      <div class="sec-lbl">Mensaje de cierre</div>
+      <p class="muted" style="font-size:12px;margin:0 0 6px">Se le manda al prospecto en cuanto cae aquí. Déjalo vacío para no mandar nada.</p>
+      ${campo("fi_msj", meta.mensaje_cierre, 3, "Ej. Perfecto, gracias por la información. En unos momentos un asesor se pondrá en contacto con usted.")}
+      ${admin?`<div class="dbtns" style="margin:10px 0 0"><button onclick="guardarFaseInfo(${meta.id},'${h(clave)}')">Guardar</button></div>`:''}
+
+      <div class="sec-lbl" style="margin-top:20px">Cómo se calcula la prioridad</div>
+      <p class="muted" style="font-size:12px;margin:0 0 8px">${h(s.nota)}</p>
+      <div class="sec-lbl">Tamaño — ${s.tamano.total} puntos</div>
+      <table class="stbl ${esOficina?'resalta':''}"><thead><tr><th>Oficina</th><th>pts</th></tr></thead><tbody>${filaOf}</tbody></table>
+      <table class="stbl ${esOficina?'':'resalta'}"><thead><tr><th>Casa / Departamento</th><th>pts</th></tr></thead><tbody>${filaRec}</tbody></table>
+      <div class="sec-lbl">Plazo — ${s.plazo.total} puntos</div>
+      <table class="stbl"><tbody>${tPlazo}</tbody></table>
+      <div class="sec-lbl">Tipo de propiedad — ${s.tipo.total} puntos</div>
+      <table class="stbl"><tbody>${tTipo}</tbody></table>
+    </div>`;
+  // `classList`, NO `style.display`: closeDrawer() quita la clase, y un estilo inline le ganaría
+  // y dejaría el panel pegado en pantalla.
+  document.getElementById("overlay").classList.add("open");
+}
+async function guardarFaseInfo(id, clave){
+  const meta = FASES_META[clave] || {};
+  await api("/api/fases/"+id,{method:"PUT",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({nombre: meta.nombre,
+                         criterios: document.getElementById("fi_crit").value,
+                         mensaje_cierre: document.getElementById("fi_msj").value})});
+  closeDrawer();
+  await loadKanban();
+}
+
+async function ocultarLead(id, nombre){
+  if(!confirm(`¿Quitar a ${nombre} del tablero?\n\nNo se borra nada: queda en Historial y lo puedes devolver cuando quieras.`)) return;
+  await api("/api/leads/"+id+"/ocultar",{method:"POST"});
+  closeDrawer();
+  await loadKanban();
+}
+async function moverLead(id, fase){
+  await api(`/api/leads/${id}/estado?estado=${encodeURIComponent(fase)}`,{method:"PUT"});
+  closeDrawer();
+  await loadKanban();
+}
+
+// Mover leads a mano entre columnas. El endpoint PUT /api/leads/{id}/estado ya existía; el
+// frontend nunca lo llamaba, así que no había forma de mover un lead sin tocar la base.
+// Mover a mano NO manda mensaje de cierre ni notificación: eso solo lo hace el bot al clasificar.
+function activarArrastreLeads(){
+  let origen = null;
+  document.querySelectorAll("#kanban .lead").forEach(card=>{
+    card.addEventListener("dragstart", e=>{ origen=card; card.classList.add("arrastrando"); e.dataTransfer.effectAllowed="move"; });
+    card.addEventListener("dragend", ()=>card.classList.remove("arrastrando"));
+  });
+  document.querySelectorAll("#kanban .body").forEach(col=>{
+    col.addEventListener("dragover", e=>{ e.preventDefault(); col.classList.add("destino"); });
+    col.addEventListener("dragleave", ()=>col.classList.remove("destino"));
+    col.addEventListener("drop", async e=>{
+      e.preventDefault();
+      col.classList.remove("destino");
+      if(!origen) return;
+      const id = origen.dataset.id, fase = col.dataset.fase;
+      const actual = (LEADS_BY_PHONE[origen.dataset.phone]||{}).estado;
+      origen = null;
+      if(!id || !fase || fase===actual) return;
+      await api(`/api/leads/${id}/estado?estado=${encodeURIComponent(fase)}`,{method:"PUT"});
+      await loadKanban();
+    });
+  });
+}
+
+// ─────────── Historial de contactos ───────────
+let HIST_FILTRO = "todos", HIST_BUSCA = "", HIST_OFF = 0;
+const HIST_LIMIT = 60;
+
+async function loadHistorial(){
+  const cont = document.getElementById("historial");
+  const p = new URLSearchParams({filtro:HIST_FILTRO, limit:HIST_LIMIT, offset:HIST_OFF});
+  if(HIST_BUSCA) p.set("search", HIST_BUSCA);
+  const d = await (await api("/api/leads/historial?"+p)).json();
+
+  const chip = (k,lbl)=>`<button class="hchip ${HIST_FILTRO===k?'on':''}" onclick="histFiltro('${k}')">${lbl}</button>`;
+  const filas = d.contactos.map(c=>{
+    const etiqueta = c.no_lead ? '<span class="hest e-nolead">no es lead</span>'
+                   : c.oculto ? '<span class="hest e-oculto">oculto</span>'
+                   : '<span class="hest e-activo">activo</span>';
+    return `<tr>
+      <td><b>${h(c.name||"sin nombre")}</b><div class="muted" style="font-size:11.5px">${h(c.phone)}</div></td>
+      <td>${h(c.source||"")}</td>
+      <td>${h(c.fase||"—")}</td>
+      <td>${c.message_count}</td>
+      <td>${c.last_message_at?fecha(c.last_message_at):'—'}</td>
+      <td>${etiqueta}</td>
+      <td class="hacts">
+        ${c.oculto?`<button class="ghost sm" onclick="mostrarLead(${c.id})">Devolver</button>`:''}
+        ${c.no_lead
+          ? `<button class="ghost sm" onclick="marcarLead('${h(c.phone)}',false)">Sí es lead</button>`
+          : `<button class="ghost sm" onclick="marcarLead('${h(c.phone)}',true)">No es lead</button>`}
+      </td></tr>`;
+  }).join("");
+
+  const desde = d.total? HIST_OFF+1 : 0;
+  cont.innerHTML = `
+    <div class="fasesbox">
+      <h3 style="margin:0 0 4px">Historial de contactos</h3>
+      <p class="muted" style="margin:0 0 14px;font-size:13px">Todas las personas que han escrito alguna vez, incluidas las que quitaste del tablero y las marcadas como "no es lead". Aquí no se borra nada.</p>
+      <div class="hbar">
+        <input id="hbusca" placeholder="Buscar por nombre o teléfono…" value="${h(HIST_BUSCA)}"
+               onkeydown="if(event.key==='Enter')histBuscar()">
+        <button class="ghost sm" onclick="histBuscar()">Buscar</button>
+        <span style="flex:1"></span>
+        ${chip("todos","Todos")}${chip("activos","En el tablero")}${chip("ocultos","Ocultos")}${chip("no_lead","No son leads")}
+      </div>
+      ${d.total? `<table class="htbl"><thead><tr>
+          <th>Contacto</th><th>Canal</th><th>Etapa</th><th>Msjs</th><th>Último mensaje</th><th>Estado</th><th></th>
+        </tr></thead><tbody>${filas}</tbody></table>
+        <div class="hpag"><span class="muted">${desde}–${HIST_OFF+d.contactos.length} de ${d.total}</span>
+          <button class="ghost sm" onclick="histPag(-1)" ${HIST_OFF===0?'disabled':''}>Anterior</button>
+          <button class="ghost sm" onclick="histPag(1)" ${HIST_OFF+HIST_LIMIT>=d.total?'disabled':''}>Siguiente</button>
+        </div>`
+        : '<div class="muted">No hay contactos que coincidan.</div>'}
+    </div>`;
+}
+function histFiltro(k){ HIST_FILTRO=k; HIST_OFF=0; loadHistorial(); }
+function histBuscar(){ HIST_BUSCA=document.getElementById("hbusca").value.trim(); HIST_OFF=0; loadHistorial(); }
+function histPag(d){ HIST_OFF=Math.max(0,HIST_OFF+d*HIST_LIMIT); loadHistorial(); }
+async function mostrarLead(id){
+  await api("/api/leads/"+id+"/mostrar",{method:"POST"});
+  await loadHistorial();
+}
+async function marcarLead(phone, esNoLead){
+  if(esNoLead){
+    if(!confirm("¿Marcar este contacto como \"no es lead\"?\n\nEl bot dejará de contestarle para siempre y saldrá del tablero y de las métricas. Su conversación se sigue guardando aquí.")) return;
+    await api("/api/leads/no-lead",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({telefono:phone})});
+  }else{
+    await api("/api/leads/no-lead/"+encodeURIComponent(phone),{method:"DELETE"});
+  }
+  await loadHistorial();
+}
+function fecha(iso){
+  const d=new Date(iso);
+  return d.toLocaleDateString("es-MX",{day:"2-digit",month:"short"})+" "+d.toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"});
 }
 
 // ─────────── Perfil del lead (drawer) ───────────
@@ -415,9 +700,20 @@ async function openPerfil(phone){
   PF_USO = l.uso || null;
   const si = scoreInfo(l.score_calif);
   const razones = razonesLead(l);
-  const exp = l.es_buen_prospecto
-    ? ("Buen prospecto" + (razones.length ? ": "+razones.join(", ") : "") + ".")
-    : "Aún no cumple los criterios de buen prospecto (falta el tipo de propiedad, su dato ligado o el tiempo de renta).";
+  const falta = l.falta_cuestionario || [];
+  const exp = falta.length
+    ? ("El cuestionario no ha terminado, falta preguntar: " + falta.join(", ") + ". Hasta entonces no se clasifica ni se avisa a nadie.")
+    : (l.es_buen_prospecto
+        ? ("Buen prospecto" + (razones.length ? ": "+razones.join(", ") : "") + ".")
+        : "Cuestionario completo, pero no llega al umbral de buen prospecto.");
+  // De dónde salió cada punto: sin esto el score vuelve a ser un número opaco.
+  const dg = l.score_desglose || {};
+  const desglose = dg.completo
+    ? `<div class="scoreparts">
+         <span>Tamaño <b>${dg.tamano}</b><i>/45</i></span>
+         <span>Plazo <b>${dg.plazo}</b><i>/35</i></span>
+         <span>Tipo <b>${dg.tipo}</b><i>/20</i></span>
+       </div>` : '';
 
   const kvRow = (k,v)=>`<div class="row"><span class="k">${k}</span><span class="v ${v?'':'empty'}">${v?h(v):'—'}</span></div>`;
   const dr = document.getElementById("drawer");
@@ -439,6 +735,7 @@ async function openPerfil(phone){
           </div>
         </div>
         <div class="scorebar"><i style="width:${l.score_calif||0}%;background:${si.color}"></i></div>
+        ${desglose}
       </div>
 
       <div class="sec-lbl">Cómo está calificado</div>
@@ -487,8 +784,15 @@ async function openPerfil(phone){
       <div class="sec-lbl">Conversación</div>
       <div class="dconv" id="dconv"><div class="muted">Cargando…</div></div>
 
+      <div class="sec-lbl">Mover a otra etapa</div>
+      <p class="muted" style="font-size:12px;margin:0 0 7px">Mover a mano no le manda ningún mensaje al prospecto ni avisa a nadie.</p>
+      <select id="mv_fase" onchange="moverLead(${l.id}, this.value)">
+        ${FASES.map(f=>`<option value="${h(f.clave)}" ${f.clave===l.estado?'selected':''}>${h(f.nombre)}</option>`).join("")}
+      </select>
+
       <div class="dbtns">
         <button onclick="irAlChat('${h(l.phone)}')">Abrir chat completo</button>
+        <button class="ghost" onclick="ocultarLead(${l.id},'${h(l.name||l.phone)}')">Quitar del tablero</button>
         <button class="ghost" onclick="closeDrawer()">Cerrar</button>
       </div>
     </div>`;
@@ -752,9 +1056,13 @@ async function loadContexto(){
   const admin = ME.rol==="dueno";
   const form = admin ? `<div class="panelbox" id="ctxform">
       <h3 id="ctxTitle">Nuevo contexto</h3>
-      <p class="muted" style="margin:-6px 0 12px;font-size:13px">Escribe información que el bot debe conocer (cobertura, precios generales, políticas, promociones, tono). El bot la usa en la próxima respuesta.</p>
+      <p class="muted" style="margin:-6px 0 12px;font-size:13px">El bot lo lee en cada respuesta. Para cambiar el mensaje que se manda cuando un lead cae en una clasificación, no uses esto: usa el <b>mensaje de cierre</b> de esa fase.</p>
       <input id="ctx_titulo" placeholder="Título (ej. Política de depósito)">
       <textarea id="ctx_cont" rows="4" placeholder="Contenido que el bot debe saber…"></textarea>
+      <div class="checks" style="margin:10px 0 2px">
+        <label class="chk"><input type="radio" name="ctx_tipo" value="dato" checked> <b>Dato</b> — algo que el bot debe saber para responder</label>
+        <label class="chk"><input type="radio" name="ctx_tipo" value="regla"> <b>Regla</b> — cómo debe comportarse (va con las reglas obligatorias)</label>
+      </div>
       <div style="display:flex;gap:8px;margin-top:6px">
         <button onclick="guardarContexto()" id="ctx_save">Agregar contexto</button>
         <button class="ghost" id="ctx_cancel" style="display:none" onclick="cancelCtx()">Cancelar</button>
@@ -769,6 +1077,7 @@ async function renderContexto(){
   if(!filas.length){ list.innerHTML='<div class="muted">Aún no hay contexto. Agrega el primero para alimentar al bot.</div>'; return; }
   list.innerHTML = filas.map(c=>`<div class="ctxcard">
     <div class="ct"><span class="${c.activo?'dot-on':'dot-off'}"></span>${h(c.titulo)}
+      <span class="ctxtipo ${c.tipo==='regla'?'t-regla':'t-dato'}">${c.tipo==='regla'?'regla':'dato'}</span>
       <span class="muted" style="font-weight:400;font-size:11.5px">${c.activo?'activo':'inactivo'}</span></div>
     <div class="cc">${h(c.contenido)}</div>
     ${admin?`<div class="cacts">
@@ -783,11 +1092,12 @@ async function guardarContexto(){
   const titulo=document.getElementById("ctx_titulo").value.trim();
   const contenido=document.getElementById("ctx_cont").value.trim();
   if(!titulo||!contenido){ alert("Título y contenido son obligatorios"); return; }
+  const tipo=(document.querySelector('input[name="ctx_tipo"]:checked')||{}).value||"dato";
   if(CTX_EDIT){
-    await api("/api/contexto/"+CTX_EDIT,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({titulo,contenido,activo:true})});
+    await api("/api/contexto/"+CTX_EDIT,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({titulo,contenido,tipo,activo:true})});
     cancelCtx();
   }else{
-    await api("/api/contexto",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({titulo,contenido,activo:true})});
+    await api("/api/contexto",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({titulo,contenido,tipo,activo:true})});
     document.getElementById("ctx_titulo").value=""; document.getElementById("ctx_cont").value="";
   }
   await renderContexto();
@@ -798,6 +1108,7 @@ function editCtx(id){
   document.getElementById("ctxTitle").textContent="Editar contexto";
   document.getElementById("ctx_titulo").value=c.titulo;
   document.getElementById("ctx_cont").value=c.contenido;
+  const r=document.querySelector(`input[name="ctx_tipo"][value="${c.tipo||'dato'}"]`); if(r) r.checked=true;
   document.getElementById("ctx_save").textContent="Guardar cambios";
   document.getElementById("ctx_cancel").style.display="inline-block";
   document.getElementById("ctxform").scrollIntoView({behavior:"smooth"});
@@ -812,69 +1123,167 @@ function cancelCtx(){
 async function toggleCtx(id){ await api("/api/contexto/"+id+"/toggle",{method:"POST"}); await renderContexto(); }
 async function borrarCtx(id){ if(!confirm("¿Borrar este contexto?"))return; await api("/api/contexto/"+id,{method:"DELETE"}); await renderContexto(); }
 
-// ─────────── Fases del pipeline (configurables) ───────────
+// ─────────── Fases del pipeline ───────────
+// La fila de cada fase lleva SOLO sus dos toggles: si notifica y si entra a recuperación.
+// A quién se le avisa es una lista global (el recuadro de arriba). El mensaje de cierre y los
+// criterios se editan desde la ⓘ de cada columna en Leads, para no recargar esta tabla.
+let CONTACTOS = [];
+let SCORE_INFO = null;
+
 async function loadFases(){
   const cont = document.getElementById("fases");
   const admin = ME.rol === "dueno";
   await cargarFases();
-  const rows = FASES.map((f,i)=>`
-    <div class="ctxcard" style="border-left:6px solid ${f.color}">
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <input value="${h(f.nombre)}" id="fn_${f.id}" ${admin?'':'disabled'} style="max-width:220px;margin:0">
-        <input type="color" value="${f.color}" id="fc_${f.id}" ${admin?'':'disabled'} style="width:46px;height:38px;padding:2px;margin:0;border-radius:8px">
-        <span class="muted" style="font-size:11px">${f.rol==='custom'?'columna extra':'base · '+f.rol}</span>
-        <span style="flex:1"></span>
-        ${admin?`<button class="ghost sm" onclick="moverFase(${i},-1)" ${i===0?'disabled':''}>↑</button>
-        <button class="ghost sm" onclick="moverFase(${i},1)" ${i===FASES.length-1?'disabled':''}>↓</button>
-        <button class="sm" onclick="guardarFase(${f.id})">Guardar</button>
-        ${f.editable_borrar?`<button class="danger sm" onclick="borrarFase(${f.id})">Borrar</button>`:''}`:''}
+  CONTACTOS = await (await api("/api/fases/contactos")).json();
+  const algunaNotifica = FASES.some(f=>f.notificar);
+
+  cont.innerHTML = recuadroContactos(admin, algunaNotifica) + `
+    <div class="fasesbox">
+      <h3 style="margin:0 0 4px">Etapas del pipeline</h3>
+      <p class="muted" style="margin:0 0 16px;font-size:13px">
+        Arrastra para reordenar. Activa <b>Notificación</b> para avisar cuando un lead caiga en esa
+        etapa, o <b>Recuperación</b> para reactivar a los que se quedaron ahí.
+        El mensaje de cierre y los criterios de cada etapa se editan desde la <b>ⓘ</b> de su columna
+        en <b>Leads</b>.</p>
+      <div class="fasehead">
+        <span></span><span>TÍTULO</span><span>DESCRIPCIÓN</span>
+        <span>NOTIFICACIÓN</span><span>RECUPERACIÓN</span><span></span>
       </div>
-      <div class="grid2" style="margin-top:10px">
-        <div><label class="muted" style="font-size:11px">Descripción (qué es esta fase)</label>
-          <textarea id="fd_${f.id}" rows="2" ${admin?'':'disabled'} style="margin-top:3px">${h(f.descripcion||'')}</textarea></div>
-        <div><label class="muted" style="font-size:11px">Criterios (qué debe pasar / tener para estar aquí)</label>
-          <textarea id="fr_${f.id}" rows="2" ${admin?'':'disabled'} style="margin-top:3px">${h(f.criterios||'')}</textarea></div>
-      </div>
-    </div>`).join("");
-  cont.innerHTML =
-    (admin?`<div class="panelbox"><h3>Agregar columna</h3>
-      <p class="muted" style="margin:-6px 0 10px;font-size:13px">Puedes extender el pipeline con las columnas que necesites.</p>
-      <div style="display:flex;gap:8px;align-items:center">
-        <input id="nueva_fase" placeholder="Nombre de la fase (ej. Recuperación)" style="margin:0">
-        <input type="color" id="nueva_color" value="#8c725d" style="width:46px;height:40px;margin:0;border-radius:8px">
-        <button onclick="agregarFase()">Agregar</button></div></div>`:'')
-    + '<p class="muted" style="margin:0 0 12px">Renombra, recolora y reordena (↑↓) las fases. Las base no se borran (solo se ajustan); las que agregas sí.</p>'
-    + rows;
+      <div id="faselist">${FASES.map(f=>filaFase(f,admin)).join("")}</div>
+      ${admin?`<button class="ghost nuevaetapa" onclick="agregarFase()">+ Nueva etapa</button>`:''}
+    </div>`;
+  if(admin) activarArrastre();
 }
-function moverFase(i,dir){
-  const j=i+dir; if(j<0||j>=FASES.length) return;
-  const a=FASES.slice(); [a[i],a[j]]=[a[j],a[i]]; FASES=a; guardarOrden();
+
+// Recuadro de destinatarios, con el look del de "Números sin bot" de aseguradora.
+function recuadroContactos(admin, algunaNotifica){
+  const filas = CONTACTOS.length
+    ? CONTACTOS.map(c=>`<tr>
+        <td style="font-weight:500">${h(c.nombre)}</td>
+        <td class="muted">${h(c.telefono)}</td>
+        <td class="ctacts">${admin?`<button class="danger sm" title="Quitar de la lista"
+          onclick="borrarContacto(${c.id})">🗑</button>`:''}</td></tr>`).join("")
+    : `<tr><td colspan="3" class="cvacio">Aún no hay nadie en la lista.</td></tr>`;
+  const aviso = (algunaNotifica && !CONTACTOS.length)
+    ? `<div class="favi">Hay etapas con la notificación activa pero la lista está vacía:
+        los avisos se mandarán a los teléfonos de ALERTA_ADMIN_TELEFONOS.</div>` : '';
+  return `
+    <div class="fasesbox" style="margin-bottom:14px">
+      <h3 style="margin:0 0 4px">A quién avisar <span class="cbadge">${CONTACTOS.length}</span></h3>
+      <p class="muted" style="margin:0 0 12px;font-size:13px">
+        Estas personas reciben el aviso cuando un lead cae en una etapa con la
+        <b>Notificación</b> activa. La lista es la misma para todas las etapas.</p>
+      ${aviso}
+      ${admin?`<div class="addcontacto">
+        <input id="ct_nombre" placeholder="Nombre (ej. Emiliano)">
+        <input id="ct_tel" placeholder="528112345678">
+        <button onclick="agregarContacto()">Agregar</button>
+      </div>`:''}
+      <div class="ctblwrap"><table class="ctbl">
+        <thead><tr><th style="width:42%">NOMBRE</th><th>TELÉFONO</th><th style="width:56px"></th></tr></thead>
+        <tbody>${filas}</tbody>
+      </table></div>
+    </div>`;
 }
-async function guardarOrden(){
-  await api("/api/fases/reordenar",{method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({ids:FASES.map(f=>f.id)})});
-  loadFases();
+
+function filaFase(f,admin){
+  return `
+  <div class="faserow" data-id="${f.id}" ${admin?'draggable="true"':''}>
+    <div class="fmain">
+      <span class="fdrag" title="Arrastra para reordenar">⠿</span>
+      <input type="color" class="fdot" value="${f.color}" ${admin?'':'disabled'}
+             id="fc_${f.id}" onchange="guardarFase(${f.id})">
+      <span class="ftitulo">
+        <input value="${h(f.nombre)}" id="fn_${f.id}" ${admin?'':'disabled'} onchange="guardarFase(${f.id})">
+      </span>
+      <span class="fdesc">
+        <input value="${h(f.descripcion||'')}" id="fd_${f.id}" ${admin?'':'disabled'}
+               placeholder="Sin descripción" onchange="guardarFase(${f.id})">
+      </span>
+      <span>${pill(f,'notificar','Notificación')}</span>
+      <span>${pill(f,'recuperar','Recuperación')}</span>
+      <span class="facts">
+        ${admin&&f.editable_borrar?`<button class="danger sm" onclick="borrarFase(${f.id})">×</button>`:''}
+      </span>
+    </div>
+  </div>`;
+}
+
+function pill(f,campo,label){
+  const cls = campo==='notificar' ? 'p-noti' : 'p-recu';
+  return `<button class="fpill ${cls} ${f[campo]?'on':''}" onclick="toggleFase(${f.id},'${campo}')">
+    <i></i>${label}</button>`;
+}
+
+function cuerpoFase(id){
+  const g=(p)=>document.getElementById(p+id);
+  return {nombre:g("fn_").value.trim(), descripcion:g("fd_").value, color:g("fc_").value};
 }
 async function guardarFase(id){
-  const nombre=document.getElementById("fn_"+id).value.trim();
-  const color=document.getElementById("fc_"+id).value;
-  const descripcion=document.getElementById("fd_"+id).value;
-  const criterios=document.getElementById("fr_"+id).value;
   await api("/api/fases/"+id,{method:"PUT",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({nombre,color,descripcion,criterios})});
-  loadFases();
+    body:JSON.stringify(cuerpoFase(id))});
+  await loadFases();
+}
+async function toggleFase(id,campo){
+  const f = FASES.find(x=>x.id===id); if(!f) return;
+  await api("/api/fases/"+id,{method:"PUT",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(Object.assign(cuerpoFase(id), {[campo]: !f[campo]}))});
+  await loadFases();
+}
+async function agregarContacto(){
+  const nombre=document.getElementById("ct_nombre").value.trim();
+  const telefono=document.getElementById("ct_tel").value.trim();
+  if(!nombre||!telefono){ alert("Nombre y teléfono son obligatorios"); return; }
+  await api("/api/fases/contactos",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({nombre,telefono})});
+  await loadFases();
+}
+async function borrarContacto(id){
+  if(!confirm("¿Quitar a esta persona de la lista? Dejará de recibir los avisos.")) return;
+  await api("/api/fases/contactos/"+id,{method:"DELETE"});
+  await loadFases();
 }
 async function agregarFase(){
-  const nombre=document.getElementById("nueva_fase").value.trim(); if(!nombre) return;
-  const color=document.getElementById("nueva_color").value;
+  const nombre = prompt("Nombre de la nueva etapa:");
+  if(!nombre||!nombre.trim()) return;
   await api("/api/fases",{method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({nombre,color})});
-  loadFases();
+    body:JSON.stringify({nombre:nombre.trim()})});
+  await loadFases();
 }
 async function borrarFase(id){
-  if(!confirm("¿Borrar esta columna? Sus leads pasan a la primera fase.")) return;
+  const f = FASES.find(x=>x.id===id) || {};
+  // Borrar la fase de entrada es legal pero tiene un efecto poco obvio: los leads que aún no
+  // dicen el tipo de propiedad acaban en la primera columna que quede, sea cual sea.
+  const msg = f.rol === "entrada"
+    ? `"${f.nombre}" es la etapa de ENTRADA: es donde caen los leads que apenas escriben y todavía no dicen qué tipo de propiedad buscan.\n\nSi la borras, esos leads se irán a "${(FASES.find(x=>x.id!==id)||{}).nombre||'la primera columna'}", que probablemente no es lo que quieres.\n\n¿Borrarla de todos modos?`
+    : `¿Borrar la etapa "${f.nombre}"? Sus leads pasan a la etapa de entrada.`;
+  if(!confirm(msg)) return;
   await api("/api/fases/"+id,{method:"DELETE"});
-  loadFases();
+  await loadFases();
+}
+
+// Reordenar arrastrando. El endpoint /reordenar ya existía; antes solo había botones ↑↓.
+function activarArrastre(){
+  const lista = document.getElementById("faselist");
+  if(!lista) return;
+  let origen = null;
+  lista.querySelectorAll(".faserow").forEach(row=>{
+    row.addEventListener("dragstart", e=>{ origen=row; row.classList.add("arrastrando"); e.dataTransfer.effectAllowed="move"; });
+    row.addEventListener("dragend", ()=>{ row.classList.remove("arrastrando"); guardarOrdenDOM(); });
+    row.addEventListener("dragover", e=>{
+      e.preventDefault();
+      if(!origen||origen===row) return;
+      const r = row.getBoundingClientRect();
+      const despues = (e.clientY - r.top) > r.height/2;
+      lista.insertBefore(origen, despues ? row.nextSibling : row);
+    });
+  });
+}
+async function guardarOrdenDOM(){
+  const ids = [...document.querySelectorAll("#faselist .faserow")].map(r=>parseInt(r.dataset.id));
+  await api("/api/fases/reordenar",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({ids})});
+  await loadFases();
 }
 
 // ─────────── Usuarios (crear + asignar secciones) ───────────
