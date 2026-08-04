@@ -189,23 +189,15 @@
   .lead.arrastrando{opacity:.4}
   .col .body.destino{background:#ffffff8c;outline:2px dashed var(--tan);outline-offset:-4px;border-radius:9px}
 
-  /* ── Historial ── */
+  /* ── Recuadro de No leads ── */
   .hbar{display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
   .hbar input{margin:0;max-width:280px}
-  .hchip{font-size:11.5px;padding:6px 12px;border-radius:20px;background:#fff;
-    border:1px solid var(--line);color:var(--muted);cursor:pointer}
-  .hchip.on{background:var(--cream);border-color:var(--tan);color:var(--brand-d);font-weight:600}
   .htbl{width:100%;border-collapse:collapse;font-size:13px}
   .htbl th{text-align:left;font-size:10.5px;letter-spacing:.05em;color:var(--muted);
     padding:7px 9px;border-bottom:1px solid var(--line)}
   .htbl td{padding:9px;border-bottom:1px solid var(--line);vertical-align:middle}
   .htbl tr:last-child td{border-bottom:none}
   .hacts{text-align:right;white-space:nowrap}
-  .hest{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px;border:1px solid}
-  .hest.e-activo{color:var(--ok);border-color:var(--ok);background:#eef5f0}
-  .hest.e-oculto{color:var(--muted);border-color:var(--line);background:var(--cream)}
-  .hest.e-nolead{color:var(--hot);border-color:var(--hot);background:#f7ece7}
-  .hpag{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:14px;font-size:12px}
   @media(max-width:900px){
     .htbl{display:block;overflow-x:auto}
     .fasehead{display:none}
@@ -309,14 +301,13 @@
     <div class="wm">EMA <b>Rentals</b></div>
     <nav id="nav"></nav>
     <div class="sp"></div>
-    <span id="democtl" style="display:flex;gap:6px"></span>
+    <button class="ghost sm" onclick="abrirNoLeads()" title="Números que el bot ignora">No leads</button>
     <div class="who" id="who"></div>
     <button class="ghost" onclick="logout()">Salir</button>
   </header>
   <main>
     <div id="kanban"></div>
     <div id="inbox" style="display:none"></div>
-    <div id="historial" style="display:none"></div>
     <div id="resumen" style="display:none"></div>
     <div id="metricas" style="display:none"></div>
     <div id="contexto" style="display:none"></div>
@@ -327,6 +318,10 @@
 
 <div class="overlay" id="overlay" onclick="if(event.target===this)closeDrawer()">
   <div class="drawer" id="drawer"></div>
+</div>
+
+<div class="overlay" id="ovnolead" onclick="if(event.target===this)cerrarNoLeads()">
+  <div class="drawer" id="drnolead"></div>
 </div>
 
 <script>
@@ -365,50 +360,24 @@ async function boot(){
   await cargarFases();
   document.getElementById("who").textContent = (ME.nombre||ME.email) + " · " + ME.rol;
   // Nav gateado por secciones
-  const tabs = [["leads","Leads"],["bandeja","Bandeja"],["historial","Historial"],["resumen","Resumen"],["metricas","Métricas"],["contexto","Contexto"],["fases","Fases"],["usuarios","Usuarios"]];
+  const tabs = [["leads","Leads"],["bandeja","Bandeja"],["resumen","Resumen"],["metricas","Métricas"],["contexto","Contexto"],["fases","Fases"],["usuarios","Usuarios"]];
   const nav = document.getElementById("nav"); nav.innerHTML="";
   for(const [sec,label] of tabs){
     if(!puede(sec)) continue;
     const b=document.createElement("button"); b.textContent=label; b.dataset.sec=sec;
     b.onclick=()=>show(sec); nav.appendChild(b);
   }
-  // Controles de datos demo (solo dueño)
-  if(ME.rol==="dueno"){
-    document.getElementById("democtl").innerHTML =
-      `<button class="ghost sm" onclick="seedDemo()">Sembrar demo</button>
-       <button class="ghost sm" onclick="resetDemo()">Quitar demo</button>`;
-  }
   const first = tabs.map(t=>t[0]).find(puede) || "leads";
   show(first);
 }
 
-function refrescarVista(){
-  const act = document.querySelector('#nav button.active');
-  show(act ? act.dataset.sec : "leads");
-}
-async function seedDemo(){
-  if(!confirm("¿Sembrar 30 leads de demostración? (se reemplazan los demo previos)")) return;
-  const r = await api("/api/demo/seed", {method:"POST"});
-  const d = await r.json();
-  refrescarVista();
-  alert("Listo: "+(d.creados||0)+" leads de demostración creados.");
-}
-async function resetDemo(){
-  if(!confirm("¿Quitar TODOS los datos de demostración?")) return;
-  const r = await api("/api/demo", {method:"DELETE"});
-  const d = await r.json();
-  refrescarVista();
-  alert("Listo: "+(d.borrados||0)+" datos de demostración borrados.");
-}
-
 function show(sec){
-  ["kanban","inbox","historial","resumen","metricas","contexto","fases","usuarios"].forEach(id=>document.getElementById(id).style.display="none");
-  const map={leads:"kanban",bandeja:"inbox",historial:"historial",resumen:"resumen",metricas:"metricas",contexto:"contexto",fases:"fases",usuarios:"usuarios"};
+  ["kanban","inbox","resumen","metricas","contexto","fases","usuarios"].forEach(id=>document.getElementById(id).style.display="none");
+  const map={leads:"kanban",bandeja:"inbox",resumen:"resumen",metricas:"metricas",contexto:"contexto",fases:"fases",usuarios:"usuarios"};
   document.getElementById(map[sec]||"kanban").style.display="block";
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle("active", b.dataset.sec===sec));
   if(sec==='leads') loadKanban();
   else if(sec==='bandeja') loadInbox();
-  else if(sec==='historial') loadHistorial();
   else if(sec==='resumen') loadResumen();
   else if(sec==='metricas') loadMetricas();
   else if(sec==='contexto') loadContexto();
@@ -509,8 +478,8 @@ async function loadKanban(){
       // stopPropagation en el botón: sin él, el clic burbujea y abre el drawer.
       html += `<div class="lead" draggable="true" data-id="${l.id}" data-phone="${h(l.phone)}"
                     onclick="openPerfil('${h(l.phone)}')">
-        <button class="ocultar" title="Quitar del tablero (se conserva en Historial)"
-                onclick="event.stopPropagation();ocultarLead(${l.id},'${h(l.name||l.phone)}')">×</button>
+        <button class="ocultar" title="Borrar del tablero (se borra todo, no se puede deshacer)"
+                onclick="event.stopPropagation();borrarLead(${l.id},'${h(l.name||l.phone)}')">×</button>
         <div class="n">${buen}${h(l.name||l.phone)}</div>
         <div class="meta">${tp}${ofi}${ch}<br>${bits||'<span class="muted">sin datos aún</span>'}</div>
         ${perfilTag}
@@ -580,9 +549,20 @@ async function guardarFaseInfo(id, clave){
   await loadKanban();
 }
 
-async function ocultarLead(id, nombre){
-  if(!confirm(`¿Quitar a ${nombre} del tablero?\n\nNo se borra nada: queda en Historial y lo puedes devolver cuando quieras.`)) return;
-  await api("/api/leads/"+id+"/ocultar",{method:"POST"});
+// Sacar del tablero BORRA: no hay Historial ni papelera. Si esa persona vuelve a escribir, entra
+// otra vez como lead nuevo; para que el bot deje de contestarle está el botón "No lead".
+async function borrarLead(id, nombre){
+  if(!confirm(`¿Borrar a ${nombre} del tablero?\n\nSe borra TODO: sus datos, su conversación y su bitácora. No se puede deshacer.\n\nSi vuelve a escribir, entrará como lead nuevo (para que el bot ya no le conteste, usa "No lead").`)) return;
+  await api("/api/leads/"+id,{method:"DELETE"});
+  closeDrawer();
+  await loadKanban();
+}
+
+// "No lead": marca el TELÉFONO para que el bot no le conteste nunca más, y borra sus datos.
+async function noLeadDesdeLead(id, phone, nombre){
+  if(!confirm(`¿Marcar a ${nombre} como "No lead"?\n\nEl bot dejará de contestarle para siempre, aunque escriba de nuevo, y se borrarán sus datos y su conversación.\n\nPuedes revertirlo en el botón "No leads" de arriba.`)) return;
+  await api("/api/leads/no-lead",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({telefono:phone})});
   closeDrawer();
   await loadKanban();
 }
@@ -618,80 +598,57 @@ function activarArrastreLeads(){
   });
 }
 
-// ─────────── Historial de contactos ───────────
-let HIST_FILTRO = "todos", HIST_BUSCA = "", HIST_OFF = 0;
-const HIST_LIMIT = 60;
+// ─────────── No leads (números que el bot ignora) ───────────
+// Vive en un recuadro aparte, no en una pestaña: es una lista corta que casi nunca se toca.
+async function abrirNoLeads(){
+  document.getElementById("ovnolead").classList.add("open");
+  await pintarNoLeads();
+}
+function cerrarNoLeads(){ document.getElementById("ovnolead").classList.remove("open"); }
 
-async function loadHistorial(){
-  const cont = document.getElementById("historial");
-  const p = new URLSearchParams({filtro:HIST_FILTRO, limit:HIST_LIMIT, offset:HIST_OFF});
-  if(HIST_BUSCA) p.set("search", HIST_BUSCA);
-  const d = await (await api("/api/leads/historial?"+p)).json();
-
-  const chip = (k,lbl)=>`<button class="hchip ${HIST_FILTRO===k?'on':''}" onclick="histFiltro('${k}')">${lbl}</button>`;
-  const filas = d.contactos.map(c=>{
-    const etiqueta = c.no_lead ? '<span class="hest e-nolead">no es lead</span>'
-                   : c.oculto ? '<span class="hest e-oculto">oculto</span>'
-                   : '<span class="hest e-activo">activo</span>';
-    return `<tr>
-      <td><b>${h(c.name||"sin nombre")}</b><div class="muted" style="font-size:11.5px">${h(c.phone)}</div></td>
-      <td>${h(c.source||"")}</td>
-      <td>${h(c.fase||"—")}</td>
-      <td>${c.message_count}</td>
-      <td>${c.last_message_at?fecha(c.last_message_at):'—'}</td>
-      <td>${etiqueta}</td>
-      <td class="hacts">
-        ${c.oculto?`<button class="ghost sm" onclick="mostrarLead(${c.id})">Devolver</button>`:''}
-        ${c.no_lead
-          ? `<button class="ghost sm" onclick="marcarLead('${h(c.phone)}',false)">Sí es lead</button>`
-          : `<button class="ghost sm" onclick="marcarLead('${h(c.phone)}',true)">No es lead</button>`}
-      </td></tr>`;
-  }).join("");
-
-  const desde = d.total? HIST_OFF+1 : 0;
-  cont.innerHTML = `
-    <div class="fasesbox">
-      <h3 style="margin:0 0 4px">Historial de contactos</h3>
-      <p class="muted" style="margin:0 0 14px;font-size:13px">Todas las personas que han escrito alguna vez, incluidas las que quitaste del tablero y las marcadas como "no es lead". Aquí no se borra nada.</p>
+async function pintarNoLeads(){
+  const lista = await (await api("/api/leads/no-lead/lista")).json();
+  const filas = lista.map(c=>`<tr>
+      <td><b>${h(c.telefono)}</b>${c.motivo?`<div class="muted" style="font-size:11.5px">${h(c.motivo)}</div>`:''}</td>
+      <td class="hacts"><button class="ghost sm" onclick="quitarNoLead('${h(c.telefono)}')">Quitar</button></td>
+    </tr>`).join("");
+  document.getElementById("drnolead").innerHTML = `
+    <div class="dhead">
+      <div><h2>No leads</h2>
+        <div class="sub">Números a los que el bot nunca le contesta</div></div>
+      <button class="x" onclick="cerrarNoLeads()">&times;</button>
+    </div>
+    <div class="dbody">
+      <p class="muted" style="font-size:12.5px;margin:0 0 14px">
+        Proveedores, tu propio número, spam. La marca es permanente y por teléfono: aunque vuelvan a
+        escribir, el bot los ignora y no aparecen en el tablero. Quitarlos de aquí hace que el bot
+        les vuelva a contestar (no regresa los datos que se borraron al marcarlos).
+      </p>
       <div class="hbar">
-        <input id="hbusca" placeholder="Buscar por nombre o teléfono…" value="${h(HIST_BUSCA)}"
-               onkeydown="if(event.key==='Enter')histBuscar()">
-        <button class="ghost sm" onclick="histBuscar()">Buscar</button>
-        <span style="flex:1"></span>
-        ${chip("todos","Todos")}${chip("activos","En el tablero")}${chip("ocultos","Ocultos")}${chip("no_lead","No son leads")}
+        <input id="nl_tel" placeholder="Teléfono, ej. 528110000000"
+               onkeydown="if(event.key==='Enter')agregarNoLead()">
+        <button class="ghost sm" onclick="agregarNoLead()">Agregar</button>
       </div>
-      ${d.total? `<table class="htbl"><thead><tr>
-          <th>Contacto</th><th>Canal</th><th>Etapa</th><th>Msjs</th><th>Último mensaje</th><th>Estado</th><th></th>
-        </tr></thead><tbody>${filas}</tbody></table>
-        <div class="hpag"><span class="muted">${desde}–${HIST_OFF+d.contactos.length} de ${d.total}</span>
-          <button class="ghost sm" onclick="histPag(-1)" ${HIST_OFF===0?'disabled':''}>Anterior</button>
-          <button class="ghost sm" onclick="histPag(1)" ${HIST_OFF+HIST_LIMIT>=d.total?'disabled':''}>Siguiente</button>
-        </div>`
-        : '<div class="muted">No hay contactos que coincidan.</div>'}
+      ${lista.length
+        ? `<table class="htbl"><thead><tr><th>Teléfono</th><th></th></tr></thead><tbody>${filas}</tbody></table>`
+        : '<div class="muted">No hay ningún número bloqueado.</div>'}
     </div>`;
 }
-function histFiltro(k){ HIST_FILTRO=k; HIST_OFF=0; loadHistorial(); }
-function histBuscar(){ HIST_BUSCA=document.getElementById("hbusca").value.trim(); HIST_OFF=0; loadHistorial(); }
-function histPag(d){ HIST_OFF=Math.max(0,HIST_OFF+d*HIST_LIMIT); loadHistorial(); }
-async function mostrarLead(id){
-  await api("/api/leads/"+id+"/mostrar",{method:"POST"});
-  await loadHistorial();
-}
-async function marcarLead(phone, esNoLead){
-  if(esNoLead){
-    if(!confirm("¿Marcar este contacto como \"no es lead\"?\n\nEl bot dejará de contestarle para siempre y saldrá del tablero y de las métricas. Su conversación se sigue guardando aquí.")) return;
-    await api("/api/leads/no-lead",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({telefono:phone})});
-  }else{
-    await api("/api/leads/no-lead/"+encodeURIComponent(phone),{method:"DELETE"});
-  }
-  await loadHistorial();
-}
-function fecha(iso){
-  const d=new Date(iso);
-  return d.toLocaleDateString("es-MX",{day:"2-digit",month:"short"})+" "+d.toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"});
-}
 
+async function agregarNoLead(){
+  const tel = (document.getElementById("nl_tel").value||"").trim();
+  if(!tel) return;
+  if(!confirm(`¿Marcar ${tel} como No lead?\n\nEl bot dejará de contestarle para siempre. Si ese número tiene un lead en el tablero, se borrará con toda su conversación.`)) return;
+  await api("/api/leads/no-lead",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({telefono:tel})});
+  await pintarNoLeads();
+  await loadKanban();
+}
+async function quitarNoLead(tel){
+  if(!confirm(`¿Quitar ${tel} de la lista?\n\nEl bot volverá a contestarle y, si escribe, entrará al tablero como lead nuevo.`)) return;
+  await api("/api/leads/no-lead/"+encodeURIComponent(tel),{method:"DELETE"});
+  await pintarNoLeads();
+}
 // ─────────── Perfil del lead (drawer) ───────────
 let PF_USO = null;
 async function openPerfil(phone){
@@ -792,7 +749,11 @@ async function openPerfil(phone){
 
       <div class="dbtns">
         <button onclick="irAlChat('${h(l.phone)}')">Abrir chat completo</button>
-        <button class="ghost" onclick="ocultarLead(${l.id},'${h(l.name||l.phone)}')">Quitar del tablero</button>
+        <button class="ghost" onclick="borrarLead(${l.id},'${h(l.name||l.phone)}')">Quitar del tablero</button>
+      </div>
+      <div class="dbtns" style="margin-top:8px">
+        <button class="ghost" onclick="noLeadDesdeLead(${l.id},'${h(l.phone)}','${h(l.name||l.phone)}')"
+                title="El bot no le vuelve a contestar nunca">No lead</button>
         <button class="ghost" onclick="closeDrawer()">Cerrar</button>
       </div>
     </div>`;

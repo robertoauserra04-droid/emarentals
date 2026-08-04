@@ -1,13 +1,21 @@
-"""Ocultar leads y marcar contactos que no son leads.
+"""Borrar leads del tablero y marcar los números que el bot debe ignorar.
 
-Hasta ahora NINGUNA vista filtraba nada: Kanban, Bandeja, Métricas y Resumen traían todos los
-leads de la tabla. Estos tests fijan que los cuatro filtren, que es justo el hueco que tiene
-aseguradora (ahí `archivado` no toca las métricas).
+Dos reglas que estos tests fijan:
+
+1. **Sacar del tablero BORRA** (`purga.borrar_lead`): no hay Historial ni papelera. Si esa persona
+   vuelve a escribir, entra otra vez como lead nuevo.
+2. **No lead** marca el TELÉFONO para siempre. Como los canales guardan el número crudo
+   (`5218110000030`) y la marca se guarda normalizada (`528110000030`), todo se compara por
+   variantes — antes no coincidían y marcar "no es lead" a un número mexicano no servía de nada.
+
+Además, ninguna vista (Kanban, Bandeja, Métricas, Resumen) debe contar a los no-leads, que es el
+hueco que tiene aseguradora (ahí `archivado` no toca las métricas).
 """
 import app.services.bot.handler as handler
 from app.models.lead import AppSetting, ContactoNoLead, EmaLead
+from app.models.lead_evento import LeadEvento
 from app.models.messaging import ChatMessage, Conversation, MessageDirection
-from app.services import visibilidad
+from app.services import purga, visibilidad
 
 
 def _lead(db, phone, **kw):
@@ -17,21 +25,21 @@ def _lead(db, phone, **kw):
     return l
 
 
+def _bot_listo(db, monkeypatch, respuesta="Con gusto. ¿Qué tipo de propiedad desea amueblar?"):
+    """Deja el bot en condiciones de contestar, con la IA mockeada. Devuelve la lista de llamadas."""
+    if not db.query(AppSetting).filter(AppSetting.key == "bot_enabled").first():
+        db.add(AppSetting(key="bot_enabled", value="true"))
+        db.commit()
+    llamadas = []
+    monkeypatch.setattr(handler.ai, "generate_reply",
+                        lambda *a, **k: llamadas.append(1) or respuesta)
+    import app.services.messaging_out as mo
+    monkeypatch.setattr(mo, "_enviar_por_canal", lambda p, b, c: "wamid-out")
+    handler.settings.openai_api_key = "test-key"
+    return llamadas
+
+
 # ─────────── El filtro compartido ───────────
-
-def test_oculto_sale_del_filtro(db):
-    visible = _lead(db, "52100")
-    _lead(db, "52101", oculto=True)
-    assert {l.phone for l in visibilidad.leads_visibles(db)} == {visible.phone}
-
-
-def test_null_cuenta_como_visible(db):
-    """Tras el ADD COLUMN las filas viejas quedan en NULL: `is_(False)` no las capturaría."""
-    l = _lead(db, "52102")
-    l.oculto = None
-    db.commit()
-    assert {x.phone for x in visibilidad.leads_visibles(db)} == {"52102"}
-
 
 def test_no_lead_sale_del_filtro(db):
     _lead(db, "52103")
@@ -41,148 +49,149 @@ def test_no_lead_sale_del_filtro(db):
     assert visibilidad.es_no_lead(db, "52103") is True
 
 
-def test_no_lead_sobrevive_al_reinicio_del_lead(db):
+def test_no_lead_compara_por_variantes(db):
+    """El lead se guarda con el 1 de móvil y la marca sin él: aun así deben coincidir."""
+    _lead(db, "5218110000030")
+    db.add(ContactoNoLead(telefono="528110000030"))
+    db.commit()
+    assert visibilidad.leads_visibles(db).all() == []
+    assert visibilidad.es_no_lead(db, "5218110000030") is True
+    assert visibilidad.es_no_lead(db, "528110000030") is True
+
+
+def test_no_lead_sobrevive_al_borrado_del_lead(db, usuario):
     """Es por teléfono y no una bandera del lead, a propósito: en aseguradora la marca es por
     conversación y el contacto reaparece al abrirse un caso nuevo."""
-    l = _lead(db, "52104")
-    db.add(ContactoNoLead(telefono="52104"))
-    db.commit()
-    # Simula el /reiniciar: limpia el lead por completo.
-    l.estado, l.oculto, l.score_calif = "nuevo", False, 0
-    db.commit()
+    from app.routers.leads import NoLeadIn, marcar_no_lead
+    _lead(db, "52104")
+    marcar_no_lead(NoLeadIn(telefono="52104"), db=db, user=usuario)
+    assert db.query(EmaLead).filter(EmaLead.phone == "52104").first() is None
     assert visibilidad.es_no_lead(db, "52104") is True
-    assert visibilidad.leads_visibles(db).all() == []
 
 
 # ─────────── Las cuatro vistas ───────────
 
-def _pipeline(db, user):
+def test_kanban_no_muestra_no_leads(db, usuario):
     from app.routers.leads import pipeline
-    return pipeline(db=db, user=user)
-
-
-def test_kanban_no_muestra_ocultos(db, usuario):
     _lead(db, "52110", estado="interesado")
-    _lead(db, "52111", estado="interesado", oculto=True)
-    d = _pipeline(db, usuario)
-    telefonos = {l["phone"] for col in d["leads"].values() for l in col}
-    assert telefonos == {"52110"}
+    _lead(db, "52111", estado="interesado")
+    db.add(ContactoNoLead(telefono="52111"))
+    db.commit()
+    d = pipeline(db=db, user=usuario)
+    assert {l["phone"] for col in d["leads"].values() for l in col} == {"52110"}
 
 
-def test_metricas_no_cuentan_ocultos_ni_no_leads(db, usuario):
+def test_metricas_no_cuentan_no_leads(db, usuario):
     from app.routers.metrics import metricas
     _lead(db, "52120")
-    _lead(db, "52121", oculto=True)
     _lead(db, "52122")
     db.add(ContactoNoLead(telefono="52122"))
     db.commit()
-    d = metricas(desde=None, hasta=None, db=db, user=usuario)
-    assert d["total"] == 1
+    assert metricas(desde=None, hasta=None, db=db, user=usuario)["total"] == 1
 
 
-def test_resumen_no_cuenta_ocultos(db, usuario):
+def test_resumen_no_cuenta_no_leads(db, usuario):
     from app.routers.leads import resumen_cuadrante
     _lead(db, "52130")
-    _lead(db, "52131", oculto=True)
-    d = resumen_cuadrante(db=db, user=usuario)
-    assert d["total"] == 1
+    _lead(db, "52131")
+    db.add(ContactoNoLead(telefono="52131"))
+    db.commit()
+    assert resumen_cuadrante(db=db, user=usuario)["total"] == 1
 
 
-def test_bandeja_no_muestra_ocultos_ni_no_leads(db, usuario):
+def test_bandeja_no_muestra_no_leads(db, usuario):
     from app.routers.conversaciones import listar
-    for p in ("52140", "52141", "52142"):
+    for p in ("52140", "52142"):
         db.add(Conversation(phone=p, channel="whatsapp"))
     _lead(db, "52140")
-    _lead(db, "52141", oculto=True)
     _lead(db, "52142")
     db.add(ContactoNoLead(telefono="52142"))
     db.commit()
     assert {c["phone"] for c in listar(db=db, user=usuario)} == {"52140"}
 
 
-# ─────────── El bot ignora a los no-leads ───────────
+# ─────────── Borrar del tablero ───────────
 
-def test_el_bot_no_contesta_a_un_no_lead(db, monkeypatch):
-    phone = "5218110000030"
+def test_borrar_lead_no_deja_rastro(db, usuario):
+    from app.routers.leads import borrar
+    phone = "5218110000010"
+    l = _lead(db, phone)
     db.add(Conversation(phone=phone, channel="whatsapp"))
-    db.add(AppSetting(key="bot_enabled", value="true"))
-    db.add(ContactoNoLead(telefono=phone, motivo="proveedor"))
+    db.add(ChatMessage(phone=phone, channel="whatsapp",
+                       direction=MessageDirection.inbound, body="hola"))
+    db.add(LeadEvento(lead_id=l.id, tipo="etapa", detalle="nuevo → interesado"))
     db.commit()
 
-    llamadas = []
-    monkeypatch.setattr(handler.ai, "generate_reply",
-                        lambda *a, **k: llamadas.append(1) or "hola")
-    handler.settings.openai_api_key = "test-key"
+    borrar(l.id, db=db, user=usuario)
 
-    handler.handle_inbound(db, phone, "hola, les traigo una cotización", channel="whatsapp")
-
-    assert llamadas == []          # la IA ni se llamó
-    # …pero el mensaje entrante SÍ quedó guardado: se ve en Historial.
-    lead = db.query(EmaLead).filter(EmaLead.phone == phone).first()
-    assert lead is not None
-    assert lead.message_count == 1
+    assert db.query(EmaLead).filter(EmaLead.phone == phone).first() is None
+    assert db.query(ChatMessage).filter(ChatMessage.phone == phone).count() == 0
+    assert db.query(Conversation).filter(Conversation.phone == phone).count() == 0
+    assert db.query(LeadEvento).count() == 0
 
 
-# ─────────── Historial ───────────
+def test_borrado_vuelve_a_escribir_y_entra_como_nuevo(db, monkeypatch, usuario):
+    """El efecto buscado del borrado físico: no queda nada que 'recuerde' al contacto."""
+    from app.routers.leads import borrar
+    phone = "5218110000011"
+    llamadas = _bot_listo(db, monkeypatch)
 
-def test_historial_incluye_ocultos_y_no_leads(db, usuario):
-    from app.routers.leads import historial
-    _lead(db, "52150")
-    _lead(db, "52151", oculto=True)
-    _lead(db, "52152")
-    db.add(ContactoNoLead(telefono="52152"))
+    handler.handle_inbound(db, phone, "hola, quiero rentar muebles", channel="whatsapp")
+    l = db.query(EmaLead).filter(EmaLead.phone == phone).first()
+    l.estado, l.score_calif, l.bot_active = "residencial_bueno", 80, False
     db.commit()
+    borrar(l.id, db=db, user=usuario)
 
-    d = historial(db=db, user=usuario)
-    assert d["total"] == 3
-    por_tel = {c["phone"]: c for c in d["contactos"]}
-    assert por_tel["52151"]["oculto"] is True
-    assert por_tel["52152"]["no_lead"] is True
-    assert por_tel["52150"]["oculto"] is False
+    handler.handle_inbound(db, phone, "hola de nuevo", channel="whatsapp")
 
-
-def test_historial_filtra_y_busca(db, usuario):
-    from app.routers.leads import historial
-    _lead(db, "52160", name="Mariana")
-    _lead(db, "52161", name="Pedro", oculto=True)
-
-    assert historial(filtro="ocultos", db=db, user=usuario)["total"] == 1
-    assert historial(filtro="activos", db=db, user=usuario)["total"] == 1
-    assert historial(search="Mariana", db=db, user=usuario)["total"] == 1
-    assert historial(search="5216", db=db, user=usuario)["total"] == 2
+    # Fila nueva: SQLite puede reciclar el id, pero nada del lead anterior sobrevive.
+    nuevo = db.query(EmaLead).filter(EmaLead.phone == phone).first()
+    assert nuevo is not None
+    assert nuevo.estado == "nuevo"
+    assert (nuevo.score_calif or 0) == 0
+    assert nuevo.bot_active is True
+    assert nuevo.message_count == 1
+    assert len(llamadas) == 2          # el bot le contestó las dos veces
 
 
-def test_historial_sin_no_leads_no_truena(db, usuario):
-    """El filtro no_lead con la tabla vacía no debe reventar la query."""
-    from app.routers.leads import historial
-    _lead(db, "52170")
-    assert historial(filtro="no_lead", db=db, user=usuario)["total"] == 0
+# ─────────── No lead ───────────
 
-
-# ─────────── Ocultar / devolver ───────────
-
-def test_ocultar_y_devolver(db, usuario):
-    from app.routers.leads import mostrar, ocultar
-    l = _lead(db, "52180")
-    ocultar(l.id, db=db, user=usuario)
-    assert l.oculto is True and l.oculto_at is not None
-    mostrar(l.id, db=db, user=usuario)
-    assert l.oculto is False and l.oculto_at is None
-
-
-def test_marcar_no_lead_tambien_lo_oculta(db, usuario):
+def test_marcar_no_lead_borra_el_lead_y_calla_al_bot(db, usuario, monkeypatch):
+    """El caso real: número de WhatsApp MX (con el 1) marcado desde el panel."""
     from app.routers.leads import NoLeadIn, marcar_no_lead
-    l = _lead(db, "528110000099")
-    marcar_no_lead(NoLeadIn(telefono="528110000099", motivo="proveedor"), db=db, user=usuario)
-    assert l.oculto is True
-    assert visibilidad.es_no_lead(db, "528110000099") is True
+    phone = "5218110000030"
+    l = _lead(db, phone)
+    db.add(Conversation(phone=phone, channel="whatsapp"))
+    db.commit()
+
+    r = marcar_no_lead(NoLeadIn(telefono=phone, motivo="proveedor"), db=db, user=usuario)
+    assert r["borrado"] is True
+    assert db.query(EmaLead).filter(EmaLead.phone == phone).first() is None
+    assert visibilidad.es_no_lead(db, phone) is True
+
+    llamadas = _bot_listo(db, monkeypatch)
+    handler.handle_inbound(db, phone, "les traigo una cotización", channel="whatsapp")
+    assert llamadas == []                       # la IA ni se llamó
+    # El lead se vuelve a crear (el webhook registra todo lo que entra) pero no se ve en ningún lado.
+    assert visibilidad.leads_visibles(db).all() == []
 
 
-def test_desmarcar_no_lead_no_lo_devuelve_solo(db, usuario):
-    """Son dos decisiones separadas: dejar de ignorarlo no implica regresarlo al tablero."""
+def test_marcar_no_lead_sin_lead_no_truena(db, usuario):
+    from app.routers.leads import NoLeadIn, marcar_no_lead
+    r = marcar_no_lead(NoLeadIn(telefono="528110000044"), db=db, user=usuario)
+    assert r["borrado"] is False
+    assert visibilidad.es_no_lead(db, "528110000044") is True
+
+
+def test_quitar_de_no_leads_devuelve_al_bot(db, usuario, monkeypatch):
     from app.routers.leads import NoLeadIn, desmarcar_no_lead, marcar_no_lead
-    l = _lead(db, "528110000098")
-    marcar_no_lead(NoLeadIn(telefono="528110000098"), db=db, user=usuario)
-    desmarcar_no_lead("528110000098", db=db, user=usuario)
-    assert visibilidad.es_no_lead(db, "528110000098") is False
-    assert l.oculto is True
+    phone = "5218110000031"
+    marcar_no_lead(NoLeadIn(telefono=phone), db=db, user=usuario)
+    desmarcar_no_lead(phone, db=db, user=usuario)
+    assert visibilidad.es_no_lead(db, phone) is False
+
+    llamadas = _bot_listo(db, monkeypatch)
+    handler.handle_inbound(db, phone, "hola", channel="whatsapp")
+    assert len(llamadas) == 1
+    lead = db.query(EmaLead).filter(EmaLead.phone == phone).first()
+    assert lead.estado == "nuevo"

@@ -3,11 +3,8 @@
 Filtro de leads: el dueño/admin ve todos; el asesor también (no hay round-robin, la asignación
 es informal por la alerta). Sin finanzas: cerrar como ganado/perdido es solo informativo.
 """
-from datetime import datetime, timezone
-
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -17,7 +14,7 @@ from app.models.messaging import ChatMessage, MessageDirection
 from app.models.user import User
 from app.routers.fases import listar_fases
 from app.services.bot import leads as leads_svc
-from app.services import auth, clasificacion, eventos, visibilidad
+from app.services import auth, clasificacion, eventos, purga, visibilidad
 
 router = APIRouter(prefix="/api/leads", tags=["leads"])
 
@@ -74,73 +71,9 @@ def pipeline(db: Session = Depends(get_db), user: User = Depends(auth.current_us
     }
 
 
-# ─────────── Historial y visibilidad ───────────
-# OJO: estas rutas literales van ANTES de `GET /{lead_id}`, o FastAPI intenta parsear "historial"
+# ─────────── No leads (números que el bot ignora) ───────────
+# OJO: estas rutas literales van ANTES de `/{lead_id}`, o FastAPI intenta parsear "no-lead"
 # como int y truena.
-
-@router.get("/historial")
-def historial(search: str = "", filtro: str = "todos", limit: int = 60, offset: int = 0,
-              db: Session = Depends(get_db), user: User = Depends(auth.current_user)):
-    """Todos los contactos que han existido, incluidos los ocultos y los marcados 'no es lead'.
-
-    `filtro`: todos | activos | ocultos | no_lead
-    """
-    no_lead = visibilidad.telefonos_no_lead(db)
-    q = db.query(EmaLead)
-    if search.strip():
-        patron = f"%{search.strip()}%"
-        q = q.filter(or_(EmaLead.name.ilike(patron), EmaLead.phone.ilike(patron)))
-    if filtro == "ocultos":
-        q = q.filter(EmaLead.oculto.is_(True))
-    elif filtro == "no_lead":
-        q = q.filter(EmaLead.phone.in_(no_lead) if no_lead else False)
-    elif filtro == "activos":
-        q = visibilidad.visibles(q)
-
-    total = q.count()
-    filas = q.order_by(EmaLead.last_message_at.desc().nullslast(),
-                       EmaLead.id.desc()).limit(min(limit, 200)).offset(offset).all()
-    fases = {f.clave: f.nombre for f in listar_fases(db)}
-    return {
-        "total": total, "limit": limit, "offset": offset,
-        "contactos": [{
-            "id": l.id, "phone": l.phone, "name": l.name, "source": l.source,
-            "estado": l.estado, "fase": fases.get(l.estado or "", l.estado or ""),
-            "score_calif": l.score_calif or 0, "message_count": l.message_count or 0,
-            "oculto": bool(l.oculto), "no_lead": l.phone in no_lead,
-            "tipo_propiedad": l.tipo_propiedad,
-            "created_at": l.created_at.isoformat() if l.created_at else None,
-            "last_message_at": l.last_message_at.isoformat() if l.last_message_at else None,
-        } for l in filas],
-    }
-
-
-@router.post("/{lead_id}/ocultar")
-def ocultar(lead_id: int, db: Session = Depends(get_db), user: User = Depends(auth.current_user)):
-    """Saca el lead del tablero SIN borrar nada. Se recupera desde Historial."""
-    lead = db.query(EmaLead).filter(EmaLead.id == lead_id).first()
-    if not lead:
-        raise HTTPException(404, "Lead no encontrado")
-    lead.oculto = True
-    lead.oculto_at = datetime.now(timezone.utc)
-    eventos.registrar(db, lead.id, "oculto", "Quitado del tablero",
-                      autor=user.nombre or user.email)
-    db.commit()
-    return {"ok": True}
-
-
-@router.post("/{lead_id}/mostrar")
-def mostrar(lead_id: int, db: Session = Depends(get_db), user: User = Depends(auth.current_user)):
-    lead = db.query(EmaLead).filter(EmaLead.id == lead_id).first()
-    if not lead:
-        raise HTTPException(404, "Lead no encontrado")
-    lead.oculto = False
-    lead.oculto_at = None
-    eventos.registrar(db, lead.id, "oculto", "Devuelto al tablero",
-                      autor=user.nombre or user.email)
-    db.commit()
-    return {"ok": True}
-
 
 class NoLeadIn(BaseModel):
     telefono: str
@@ -156,31 +89,49 @@ def listar_no_lead(db: Session = Depends(get_db), user: User = Depends(auth.curr
 @router.post("/no-lead")
 def marcar_no_lead(data: NoLeadIn, db: Session = Depends(get_db),
                    user: User = Depends(auth.current_user)):
-    """Marca un teléfono como 'no es prospecto'. Permanente y por teléfono: sobrevive a que el
-    lead se oculte o se reinicie. El bot deja de contestarle; su conversación se sigue guardando."""
+    """Marca un teléfono como 'no es prospecto': el bot no vuelve a contestarle NUNCA.
+
+    La marca es por TELÉFONO y vive en su propia tabla, por eso sobrevive a que el lead se borre.
+    Además purga los datos del lead: ya no hay Historial donde consultarlos, así que dejarlos sería
+    basura invisible en la base.
+    """
     telefono = leads_svc.norm_phone(data.telefono.strip())
     if not telefono:
         raise HTTPException(422, "El teléfono es obligatorio")
     if not db.query(ContactoNoLead).filter(ContactoNoLead.telefono == telefono).first():
         db.add(ContactoNoLead(telefono=telefono, motivo=(data.motivo or "").strip() or None))
-    # También lo sacamos del tablero: si no es lead, no debe ocupar una columna.
-    lead = db.query(EmaLead).filter(EmaLead.phone == telefono).first()
+    # El lead pudo guardarse con el 1 de móvil (521...) mientras aquí guardamos normalizado.
+    lead = (db.query(EmaLead)
+            .filter(EmaLead.phone.in_(visibilidad.variantes(telefono))).first())
     if lead:
-        lead.oculto = True
-        lead.oculto_at = datetime.now(timezone.utc)
+        purga.borrar_lead(db, lead)
     db.commit()
-    return {"ok": True, "telefono": telefono}
+    return {"ok": True, "telefono": telefono, "borrado": lead is not None}
 
 
 @router.delete("/no-lead/{telefono}")
 def desmarcar_no_lead(telefono: str, db: Session = Depends(get_db),
                       user: User = Depends(auth.current_user)):
-    """Vuelve a tratarlo como prospecto. No devuelve el lead al tablero por sí solo: eso es
-    'Devolver al Kanban', para que sean dos decisiones separadas."""
+    """Vuelve a tratarlo como prospecto: el bot le contesta otra vez y, si escribe, entra al
+    tablero como lead nuevo. No revive los datos que se borraron al marcarlo."""
     tel = leads_svc.norm_phone(telefono.strip())
     db.query(ContactoNoLead).filter(ContactoNoLead.telefono == tel).delete(synchronize_session=False)
     db.commit()
     return {"ok": True}
+
+
+@router.delete("/{lead_id}")
+def borrar(lead_id: int, db: Session = Depends(get_db), user: User = Depends(auth.current_user)):
+    """Saca al lead del tablero BORRÁNDOLO todo: datos, conversación y bitácora. Irreversible.
+
+    Si esa persona vuelve a escribir, entra de cero como lead nuevo (para que el bot deje de
+    contestarle hay que marcarla como No lead)."""
+    lead = db.query(EmaLead).filter(EmaLead.id == lead_id).first()
+    if not lead:
+        raise HTTPException(404, "Lead no encontrado")
+    phone = purga.borrar_lead(db, lead)
+    db.commit()
+    return {"ok": True, "phone": phone}
 
 
 @router.get("/{lead_id}")

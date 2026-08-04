@@ -45,8 +45,7 @@ def metricas(desde: str | None = None, hasta: str | None = None,
              db: Session = Depends(get_db), user: User = Depends(auth.requiere_seccion("metricas"))):
     d0 = _parse(desde)
     d1 = _parse(hasta)
-    # Sin este filtro, los leads ocultos y los teléfonos marcados "no es lead" seguían contando
-    # en todos los KPIs (es el hueco que tiene aseguradora con `archivado`).
+    # Sin este filtro, los teléfonos marcados "no es lead" seguían contando en todos los KPIs.
     q = visibilidad.visibles(db.query(EmaLead))
     if d0:
         q = q.filter(EmaLead.created_at >= d0)

@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from app.config import settings, validar_config
 from app.database import Base, SessionLocal, engine
 from app.routers import (auth as auth_router, config as config_router, contexto, conversaciones,
-                         demo, fases, leads, metrics, recovery as recovery_router, sinch_webhook,
+                         fases, leads, metrics, recovery as recovery_router, sinch_webhook,
                          usuarios, webhook)
 
 logging.basicConfig(level=logging.WARNING)
@@ -47,7 +47,6 @@ app.include_router(metrics.router)          # métricas de leads con filtro por 
 app.include_router(config_router.router)    # config global (umbral del cuadrante)
 app.include_router(fases.router)            # fases del pipeline (configurables)
 app.include_router(contexto.router)         # contexto vivo del bot
-app.include_router(demo.router)             # datos de demostración (sembrar/borrar)
 app.include_router(recovery_router.router)  # recuperación (apagada por default)
 
 

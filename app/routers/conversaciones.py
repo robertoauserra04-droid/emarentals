@@ -29,9 +29,9 @@ def _mis_telefonos(db: Session, user: User) -> set[str] | None:
 def listar(db: Session = Depends(get_db), user: User = Depends(auth.current_user)):
     permitidos = _mis_telefonos(db, user)
     leads = {l.phone: l for l in db.query(EmaLead).all()}
-    # Fuera de la bandeja: leads ocultos y contactos marcados "no es lead". Su conversación sigue
-    # guardada — se consulta desde Historial.
-    fuera = {p for p, l in leads.items() if l.oculto} | visibilidad.telefonos_no_lead(db)
+    # Fuera de la bandeja: los contactos marcados "no es lead". Sus mensajes se siguen guardando
+    # (por si hay que auditarlos), pero no ocupan lugar en la bandeja.
+    fuera = visibilidad.telefonos_no_lead(db)
     out = []
     for c in db.query(Conversation).order_by(Conversation.last_message_at.desc()).all():
         if permitidos is not None and c.phone not in permitidos:

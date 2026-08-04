@@ -114,10 +114,10 @@ class EmaLead(Base):
     # Clave de la fase cuyo mensaje de cierre ya se envió: evita repetirlo en cada turno.
     cierre_enviado_en = Column(String, nullable=True)
 
-    # Oculto del tablero. NO borra nada: el lead sigue en Historial y se puede devolver.
-    # Política del proyecto: sin DELETE físico (ver app/routers/usuarios.py).
-    oculto    = Column(Boolean, default=False)
-    oculto_at = Column(DateTime(timezone=True), nullable=True)
+    # Nota: sacar un lead del tablero lo BORRA con todo su rastro (`app/services/purga.py`), que es
+    # la única excepción a la política de sin DELETE físico del proyecto (ver app/routers/usuarios.py).
+    # Las columnas `oculto`/`oculto_at` de la vieja sección Historial ya no existen en el modelo;
+    # si quedaron en una base vieja, se ignoran.
 
 
 class Fase(Base):

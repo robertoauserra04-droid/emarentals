@@ -26,7 +26,7 @@ En dev, sin `KAPSO_API_KEY` los envíos son no-op logueados y la firma del webho
 
 ## Pruebas
 ```bash
-python -m pytest tests/ -q      # 25 tests
+python -m pytest tests/ -q      # 100 tests
 ```
 
 ## Canales
@@ -44,11 +44,12 @@ python -m pytest tests/ -q      # 25 tests
 | **Fases** | `app/routers/fases.py` | **el centro de mando**: toggles, destinatarios, mensaje de cierre |
 | **Fases** | `app/services/fases_acciones.py` | ejecuta lo que la fase manda al entrar un lead |
 | Alerta | `app/services/notificaciones.py` | a los destinatarios de la fase: plantilla → texto → email → log |
-| Visibilidad | `app/services/visibilidad.py` | filtro único: leads ocultos y contactos "no es lead" |
+| Visibilidad | `app/services/visibilidad.py` | filtro único: contactos "no es lead" (compara por variantes 52/521) |
+| Borrado | `app/services/purga.py` | `borrar_lead`: saca del tablero borrando todo su rastro |
 | Contexto | `app/services/contexto.py` | separa **datos** (información) de **reglas** (comportamiento) |
 | Canal | `app/routers/webhook.py` | webhook Kapso + HMAC + coexistencia (eco saliente) |
 | Canal | `app/routers/sinch_webhook.py` | webhook Sinch (Instagram + Messenger) |
-| Panel | `app/routers/{leads,conversaciones,auth,usuarios}.py` | kanban, bandeja, historial, login, usuarios |
+| Panel | `app/routers/{leads,conversaciones,auth,usuarios}.py` | kanban, bandeja, login, usuarios |
 | Recuperación | `app/services/recovery.py` | selección por fase, pero motor **APAGADO** (sin scheduler) |
 
 ## El corazón — el cuestionario manda
@@ -75,12 +76,22 @@ La pantalla de Contexto acepta dos tipos: **dato** (información que el bot usa 
 ahí son los mensajes que dependen de la clasificación: eso necesita ser determinista y vive en el
 **mensaje de cierre de cada fase**, enviado por código.
 
-## Historial y contactos que no son leads
-`Historial` lista a todas las personas que han escrito, incluidas las que se quitaron del tablero.
-Nada se borra nunca (política del proyecto: sin DELETE físico).
-- **Ocultar** saca un lead del Kanban, Bandeja, Métricas y Resumen. Reversible.
-- **"No es lead"** marca el **teléfono** de forma permanente: el bot deja de contestarle para
-  siempre, aunque escriba de nuevo. Su conversación se sigue guardando.
+## Sacar a alguien del tablero — y los "No leads"
+Ya no hay sección Historial ni papelera: las dos acciones del panel son definitivas.
+
+- **X / "Quitar del tablero"** (`DELETE /api/leads/{id}` → `purga.borrar_lead`) borra al lead con
+  **todo** su rastro: conversación, mensajes y bitácora. Es la **única excepción** a la política de
+  sin DELETE físico del proyecto, y el panel avisa antes. Si esa persona vuelve a escribir, entra
+  otra vez como **lead nuevo** en la fase de entrada, con el bot activo.
+- **"No lead"** (botón del recuadro del lead, o el recuadro **No leads** del encabezado) marca el
+  **teléfono** de forma permanente y además borra sus datos: el bot deja de contestarle para
+  siempre, aunque escriba de nuevo, y no aparece en Kanban, Bandeja, Métricas ni Resumen. Sus
+  mensajes se siguen guardando en `chat_messages` por si hay que auditarlos. Se revierte quitándolo
+  del recuadro de No leads (eso no revive los datos borrados).
+
+> Los canales guardan el teléfono como viene (`5218110000030`) y la marca se guarda normalizada
+> (`528110000030`). `visibilidad` compara por **variantes**: sin eso, marcar "no es lead" a un
+> número mexicano no ocultaba nada y el bot le seguía contestando.
 
 **Migración inline:** `app/main.py::_ensure_columns()` agrega en el arranque cualquier columna nueva del
 modelo que falte (SQLite y Postgres). En prod, Alembic (`0001_baseline`).
