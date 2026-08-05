@@ -49,6 +49,32 @@ app.include_router(fases.router)            # fases del pipeline (configurables)
 app.include_router(contexto.router)         # contexto vivo del bot
 app.include_router(recovery_router.router)  # recuperación (apagada por default)
 
+# ── Caja negra (H1) ──────────────────────────────────────────────────────────────
+# Los tres bloques van en try/except: la observabilidad jamás debe poder tumbar
+# producción. Se apaga entera con CAJA_NEGRA_ACTIVA=0.
+import logging as _lg  # noqa: E402
+
+# Extracción SOLO para Vella (X-Fleet-Key; apagada del todo sin FLEET_INGEST_KEY).
+try:
+    from app.routers.fleet import router as _fleet_caja_router
+    app.include_router(_fleet_caja_router)
+except Exception as _e:  # noqa: BLE001
+    _lg.getLogger(__name__).warning(f"fleet caja negra no montado: {_e}")
+
+# Un turno por request que ESCRIBE, para cubrir las acciones del panel.
+try:
+    from app.caja_negra_mw import CajaNegraMiddleware
+    app.add_middleware(CajaNegraMiddleware)
+except Exception as _e:  # noqa: BLE001
+    _lg.getLogger(__name__).warning(f"caja_negra_mw no montado: {_e}")
+
+# Graba prompt_ia / respuesta_ia sin tocar el código del bot.
+try:
+    from app.caja_ia import instrumentar_openai
+    instrumentar_openai()
+except Exception as _e:  # noqa: BLE001
+    _lg.getLogger(__name__).warning(f"caja_ia no instrumentado: {_e}")
+
 
 @app.get("/health")
 def health():

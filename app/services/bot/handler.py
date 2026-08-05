@@ -68,6 +68,28 @@ def _split_bubbles(reply: str) -> list[str]:
 def handle_inbound(db: Session, phone: str, text: str, name: str | None = None,
                    channel: str = "whatsapp", campania_id: int | None = None,
                    enviar: bool = True) -> None:
+    """Turno del bot, envuelto en la caja negra.
+
+    El turno se abre AQUÍ y no en el middleware porque el bot corre FUERA del request:
+    `webhook.inbound` → `debounce.programar` → timer de 2 s → `asyncio.to_thread`. Un
+    turno abierto en el request no propagaría hasta este hilo, y `caja_negra_mw` salta
+    `/webhook` a propósito justo por eso.
+
+    `enviar=False` (simulador del panel) se pasa tal cual: un turno simulado también se
+    graba, y de hecho es de lo más útil de tener grabado.
+    """
+    import observabilidad as caja
+
+    with caja.turno(canal=channel, telefono=phone):
+        caja.registrar("mensaje_entrante",
+                       {"texto": text, "nombre": name, "canal": channel, "simulado": not enviar})
+        _handle_inbound(db, phone, text, name=name, channel=channel,
+                        campania_id=campania_id, enviar=enviar)
+
+
+def _handle_inbound(db: Session, phone: str, text: str, name: str | None = None,
+                   channel: str = "whatsapp", campania_id: int | None = None,
+                   enviar: bool = True) -> None:
     """enviar=False → modo prueba: NO manda por WhatsApp/IG; solo guarda la respuesta en el panel."""
     logger.warning("[bot] handle_inbound phone=%s name=%s channel=%s", phone, name, channel)
 
@@ -108,14 +130,29 @@ def handle_inbound(db: Session, phone: str, text: str, name: str | None = None,
     system = build_system_prompt(lead, es_primer_contacto=es_primer_contacto,
                                  datos=datos, reglas=reglas)
 
+    import observabilidad as caja
+    caja.registrar("contexto_cargado", {
+        "historial": history,
+        "estado_lead": {"fase": getattr(lead, "fase", None),
+                        "tipo_propiedad": getattr(lead, "tipo_propiedad", None),
+                        "mensajes": lead.message_count},
+        "falta_del_cuestionario": leads.falta_del_cuestionario(lead),
+        "es_primer_contacto": es_primer_contacto,
+    })
+
     actions = {"alertar": False, "motivo": ""}
 
     def _on_capturar_lead(args: dict) -> str:
-        return leads.apply_capturar_lead(lead, args)
+        resultado = leads.apply_capturar_lead(lead, args)
+        caja.registrar("accion_ejecutada", {"accion": "capturar_lead", "args": args,
+                                            "falta": leads.falta_del_cuestionario(lead)})
+        return resultado
 
     def _on_alertar_asesor(args: dict) -> str:
         actions["alertar"] = True
         actions["motivo"] = args.get("motivo", "")
+        caja.registrar("accion_ejecutada", {"accion": "alertar_asesor",
+                                            "motivo": actions["motivo"]}, nivel="warn")
         return "Listo: se avisará a un asesor. Despídete formal y breve."
 
     try:
@@ -167,6 +204,7 @@ def handle_inbound(db: Session, phone: str, text: str, name: str | None = None,
     try:
         from app.services import messaging_out
         for bubble in _split_bubbles(reply):
+            caja.registrar("mensaje_saliente", {"texto": bubble, "simulado": not enviar})
             if enviar:
                 messaging_out.send_text(db, phone, bubble, channel=channel, name=name)
             else:
