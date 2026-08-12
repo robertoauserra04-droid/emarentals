@@ -22,10 +22,12 @@ def _sembrar(db, phone):
     db.commit()
 
 
-def _mockear(db, monkeypatch, captura):
+def _mockear(db, monkeypatch, captura, respuesta="Con gusto.", alertar=False):
     def fake(system, history, handlers):
         handlers["capturar_lead"](captura)
-        return "Con gusto."
+        if alertar:
+            handlers["alertar_asesor"]({"motivo": "pidió un asesor"})
+        return respuesta
     monkeypatch.setattr(handler.ai, "generate_reply", fake)
     handler.settings.openai_api_key = "test-key"
     enviados = []
@@ -222,6 +224,65 @@ def test_lead_completo_recibe_el_cierre_de_su_fase(db, monkeypatch):
     lead = db.query(EmaLead).filter(EmaLead.phone == phone).first()
     assert lead.estado == "residencial_bueno"
     assert "Perfecto, un asesor se pondrá en contacto con usted." in enviados
+
+
+def test_el_cierre_no_se_manda_dos_veces_si_el_modelo_tambien_se_despide(db, monkeypatch):
+    """Regresión: Juan Carlos Ortiz recibió el mismo cierre DOS veces (11/8/2026).
+
+    El prompt le pide al modelo la misma frase que trae `_CIERRE_ASESOR`, así que salían las dos:
+    la de la fase y la del modelo. Manda la de la fase; la del modelo se descarta.
+    """
+    phone = "5218110000021"
+    _sembrar(db, phone)
+    fases_router.seed_fases(db)
+    cierre = "Perfecto, gracias por la información. En unos momentos un asesor se pondrá en contacto con usted."
+    f = db.query(Fase).filter(Fase.clave == "residencial_bueno").first()
+    f.mensaje_cierre, f.notificar = cierre, False
+    db.commit()
+
+    enviados, _ = _mockear(db, monkeypatch,
+                           {"tipo_propiedad": "departamento", "recamaras": 2, "tiempo_renta": "12+"},
+                           respuesta=cierre)
+    handler.handle_inbound(db, phone, "12 con posibilidad de más", channel="whatsapp")
+
+    assert enviados == [cierre]
+
+
+def test_el_descarte_no_se_contradice_con_la_despedida_del_modelo(db, monkeypatch):
+    """Peor que duplicar: 'un asesor le contactará' seguido de 'no cumple los criterios'."""
+    phone = "5218110000022"
+    _sembrar(db, phone)
+    fases_router.seed_fases(db)
+    descarte = "Gracias por su interés. Su solicitud no cumple con nuestros criterios de renta."
+    f = db.query(Fase).filter(Fase.clave == "residencial_baja").first()
+    f.mensaje_cierre, f.notificar = descarte, False
+    db.commit()
+
+    enviados, _ = _mockear(db, monkeypatch,
+                           {"tipo_propiedad": "departamento", "recamaras": 1, "tiempo_renta": "12+"},
+                           respuesta="En unos momentos un asesor se pondrá en contacto con usted.")
+    handler.handle_inbound(db, phone, "una recámara", channel="whatsapp")
+
+    lead = db.query(EmaLead).filter(EmaLead.phone == phone).first()
+    assert lead.estado == "residencial_baja"
+    assert enviados == [descarte]
+
+
+def test_sin_cierre_de_fase_cierra_el_modelo(db, monkeypatch):
+    """Descartar la despedida del modelo NO deja mudo al bot cuando la fase no cierra.
+
+    Cuestionario a medias (pidió un asesor) = `incompleto`: ahí la fase no manda cierre, así que
+    el que sale es el del modelo.
+    """
+    phone = "5218110000023"
+    _sembrar(db, phone)
+    fases_router.seed_fases(db)
+
+    enviados, _ = _mockear(db, monkeypatch, {"tipo_propiedad": "casa"},
+                           respuesta="Con gusto, un asesor la contactará.", alertar=True)
+    handler.handle_inbound(db, phone, "mejor páseme a un asesor", channel="whatsapp")
+
+    assert enviados == ["Con gusto, un asesor la contactará."]
 
 
 # ─────────── Recuperación: la selección la manda el toggle ───────────

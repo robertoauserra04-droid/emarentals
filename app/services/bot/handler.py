@@ -187,6 +187,7 @@ def _handle_inbound(db: Session, phone: str, text: str, name: str | None = None,
     from app.routers.fases import resolver_clave
     lead.estado = resolver_clave(db, lead.estado)
 
+    cierre_de_fase = False
     if completo or pidio_humano:
         lead.escalated = True
         # "Califica y entrega": el bot cede la conversación al asesor humano.
@@ -195,10 +196,23 @@ def _handle_inbound(db: Session, phone: str, text: str, name: str | None = None,
             conv.bot_active = False
         # Qué se notifica, a quién y con qué mensaje de cierre lo decide LA FASE.
         from app.services import fases_acciones
-        fases_acciones.al_entrar_a_fase(db, lead, incompleto=not completo,
-                                        canal=channel, enviar=enviar)
+        cierre_de_fase = fases_acciones.al_entrar_a_fase(db, lead, incompleto=not completo,
+                                                         canal=channel, enviar=enviar)
 
     db.commit()
+
+    # Si la FASE ya mandó su cierre, ese es el último mensaje y la despedida del modelo se tira.
+    # El prompt le pide al modelo exactamente la misma frase que trae `_CIERRE_ASESOR`, así que
+    # sin esto el prospecto recibía el cierre DOS veces (y en las fases de descarte recibía dos
+    # mensajes que se contradicen). El determinista gana: lo que se le dice al prospecto cuando
+    # se le clasifica lo decide el panel, no el modelo.
+    if cierre_de_fase:
+        caja.registrar("respuesta_descartada",
+                       {"motivo": "la fase ya mandó su mensaje de cierre",
+                        "fase": lead.estado, "texto": reply})
+        logger.warning("[bot] respuesta del modelo descartada para %s: la fase %s ya cerró",
+                       phone, lead.estado)
+        return
 
     # Enviar la respuesta (en burbujas). En modo prueba (enviar=False) solo se guarda en el panel.
     try:

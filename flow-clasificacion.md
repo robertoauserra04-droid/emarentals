@@ -149,6 +149,14 @@ Si agregas una fase base con otro nombre, súmala a ese mapa.
 Lo decide la **fase**, no el bot: cada una tiene sus toggles de Notificación y Recuperación, sus
 destinatarios y su mensaje de cierre. Ver `app/routers/fases.py`.
 
+**El cierre de la fase sustituye a la despedida del modelo.** Si la fase mandó su
+`mensaje_cierre`, la respuesta que generó el modelo en ese turno se descarta (queda en la caja
+negra como `respuesta_descartada`). El prompt le pide al modelo la misma frase que trae
+`_CIERRE_ASESOR`, así que sin esta regla el prospecto recibía el cierre **dos veces** — y en las
+fases de descarte recibía dos mensajes que se contradicen ("un asesor se pondrá en contacto"
+seguido de "no cumple con nuestros criterios de renta"). Cuando la fase no cierra (cuestionario a
+medias, `incompleto=True`), el que sale es el del modelo.
+
 ## Dónde NO va la configuración del flujo
 
 La pantalla de **Contexto** sirve para dos cosas: **datos** que el bot debe saber y **reglas** de
