@@ -74,6 +74,12 @@ def _despues(caja, resp, componente):
                 "tokens": getattr(uso, "total_tokens", None),
                 "tokens_entrada": getattr(uso, "prompt_tokens", None),
                 "tokens_salida": getattr(uso, "completion_tokens", None),
+                # Cuántos de los de entrada vinieron de caché. Sin este campo no hay forma de
+                # saber si el prefijo del system prompt está pegando: un prompt que cambia
+                # cada minuto se ve IGUAL que uno cacheado si solo miras `tokens_entrada`.
+                # getattr anidado: los modelos que no reportan el detalle dan None, no rompen.
+                "tokens_cacheados": getattr(
+                    getattr(uso, "prompt_tokens_details", None), "cached_tokens", None),
             })
     except Exception:  # noqa: BLE001
         pass
