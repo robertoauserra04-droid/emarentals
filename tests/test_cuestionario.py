@@ -223,7 +223,7 @@ def test_con_solo_el_plazo_el_prompt_ya_no_dice_que_no_sabe_nada():
     from app.services.bot.prompt import build_system_prompt
 
     p = build_system_prompt(EmaLead(phone="b2-7", tiempo_renta="12+"))
-    assert "TODAVÍA NO SABES NADA" not in p
+    assert "TODAVÍA NO TIENES NADA CAPTURADO" not in p
     assert "LO QUE YA SABES" in p
     assert "12 meses o más" in p
 
@@ -232,4 +232,20 @@ def test_lead_recien_creado_si_dice_que_no_sabe_nada():
     """Y sin nada capturado, la frase tiene que seguir apareciendo: es la que arranca bien."""
     from app.services.bot.prompt import build_system_prompt
 
-    assert "TODAVÍA NO SABES NADA" in build_system_prompt(EmaLead(phone="b2-8"))
+    assert "TODAVÍA NO TIENES NADA CAPTURADO" in build_system_prompt(EmaLead(phone="b2-8"))
+
+
+def test_el_prompt_manda_capturar_lo_ya_dicho_antes_de_preguntar():
+    """B-9: el prospecto que abre con "una casa de 3 recámaras" dentro de una pregunta de precio.
+
+    Medido en vivo (gpt-4o-mini): con la orden solo a media altura del prompt el modelo entendía
+    el dato —saltaba la pregunta del tipo— pero NO llamaba `capturar_lead`, así que el lead se
+    quedaba sin tipo ni recámaras (0/5). Con la orden repetida AL FINAL: 6/6. Por eso el test
+    cuida las dos cosas: que la regla esté, y que esté al final.
+    """
+    from app.services.bot.prompt import build_system_prompt
+
+    p = build_system_prompt(None, es_primer_contacto=True)
+    assert "RELEE EL MENSAJE DEL PROSPECTO Y CAPTURA LO QUE YA TE DIJO" in p
+    cola = p[-600:]
+    assert "OBLIGATORIO" in cola and "capturar_lead" in cola
