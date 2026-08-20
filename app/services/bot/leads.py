@@ -12,11 +12,25 @@ preguntar antes de que el código califique, notifique o lo apague. Ver `flow-cl
 El score (0-100) es SOLO para priorizar dentro de una columna del Kanban; no dispara nada.
 El bot nunca cierra venta ni demo; al terminar de filtrar, escala a un asesor.
 """
+import logging
 from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
 from app.models.lead import EmaLead
+from app.services.bot.ai import CAPTURAR_LEAD_TOOL
+
+logger = logging.getLogger(__name__)
+
+# Los valores válidos de cada campo con enum, LEÍDOS DEL ESQUEMA en vez de copiados aquí. Es la
+# misma disciplina que el resto del repo: una sola fuente de verdad, imposible de desincronizar.
+# Si alguien agrega un valor a `tiempo_renta` en ai.py, esta red lo acepta sin tocar nada; si lo
+# copiáramos, el día que cambie uno la validación empezaría a tirar datos buenos en silencio.
+CATALOGO_CAMPOS: dict[str, set] = {
+    campo: {v for v in prop["enum"] if v is not None}
+    for campo, prop in CAPTURAR_LEAD_TOOL["function"]["parameters"]["properties"].items()
+    if "enum" in prop
+}
 
 
 def norm_phone(phone: str) -> str:
@@ -153,8 +167,12 @@ def falta_del_cuestionario(lead: EmaLead) -> list[str]:
     tp = lead.tipo_propiedad
     falta: list[str] = []
     if not tp:
-        return ["tipo de propiedad", "tiempo de renta"]
-    if tp in ("casa", "departamento"):
+        # Sin tipo de propiedad no sabemos cuál es la pregunta ligada (recámaras vs m²/personas),
+        # así que esa se pide cuando el tipo llegue. Lo que NO se hace es dar por faltante el
+        # plazo sin mirarlo: quien abre con "necesito amueblar por un año" ya lo contestó, y
+        # repreguntárselo quema un turno y arranca mal la conversación.
+        falta.append("tipo de propiedad")
+    elif tp in ("casa", "departamento"):
         if lead.recamaras is None:
             falta.append("recámaras")
     elif tp == "oficina":
@@ -250,11 +268,22 @@ def apply_capturar_lead(lead: EmaLead, args: dict) -> str:
                 setattr(lead, campo, int(v))
             except (TypeError, ValueError):
                 pass
-    # Strings (COALESCE: vacío no sobreescribe)
-    for campo in ("tipo_propiedad", "tiempo_renta", "uso", "zona", "presupuesto",
+    # Strings (COALESCE: vacío no sobreescribe).
+    # `presupuesto` estuvo años en esta lista sin existir en CAPTURAR_LEAD_TOOL: el bot no podía
+    # mandarlo nunca, así que era código muerto con aspecto de funcionalidad. La columna se queda
+    # (dos routers la devuelven), pero el bot deja de fingir que la llena.
+    for campo in ("tipo_propiedad", "tiempo_renta", "uso", "zona",
                   "nivel_interes", "que_pregunto", "resumen", "motivo_perdida"):
         v = args.get(campo)
         if v not in (None, ""):
+            if campo in CATALOGO_CAMPOS and v not in CATALOGO_CAMPOS[campo]:
+                # Segunda red, no la principal: con `strict: true` en el esquema la API ya no
+                # puede generar un valor fuera de catálogo. Esto cubre el día en que alguien
+                # agregue un campo sin strict, o llame a esta función desde otro sitio. Se
+                # DESCARTA en vez de guardarse: un dato ausente vuelve a preguntarse, uno mal
+                # escrito manda el lead a la columna equivocada sin que nadie se entere.
+                logger.warning("[leads] %s='%s' fuera de catálogo, descartado", campo, v)
+                continue
             setattr(lead, campo, v)
 
     # Derivados

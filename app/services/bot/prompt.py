@@ -28,12 +28,14 @@ def _estado_lead(lead: EmaLead | None) -> str:
     Sin esto el bot solo veía el historial de mensajes y a veces repreguntaba datos que ya tenía
     capturados, o se daba por cerrado antes de tiempo.
     """
-    if lead is None or not lead.tipo_propiedad:
+    if lead is None:
         return "TODAVÍA NO SABES NADA de este prospecto. Empieza por la PREGUNTA 1."
 
     from app.services.bot import leads as leads_svc
 
-    sabe = [f"tipo de propiedad = {lead.tipo_propiedad}"]
+    sabe: list[str] = []
+    if lead.tipo_propiedad:
+        sabe.append(f"tipo de propiedad = {lead.tipo_propiedad}")
     if lead.recamaras is not None:
         sabe.append(f"recámaras = {lead.recamaras}")
     if lead.oficina_m2 is not None:
@@ -42,6 +44,12 @@ def _estado_lead(lead: EmaLead | None) -> str:
         sabe.append(f"personas = {lead.oficina_personas}")
     if lead.tiempo_renta:
         sabe.append(f"tiempo de renta = {_TIEMPO_LBL.get(lead.tiempo_renta, lead.tiempo_renta)}")
+
+    # Un lead recién creado no tiene NADA capturado: ahí sí es cierto que no sabemos nada. Lo que
+    # antes estaba mal era usar `not lead.tipo_propiedad` como prueba de eso — quien contesta el
+    # plazo antes que el tipo cae en esa rama con un dato ya guardado, y el bot se lo repregunta.
+    if not sabe:
+        return "TODAVÍA NO SABES NADA de este prospecto. Empieza por la PREGUNTA 1."
 
     lineas = ["LO QUE YA SABES (no lo vuelvas a preguntar): " + "; ".join(sabe)]
     falta = leads_svc.falta_del_cuestionario(lead)
@@ -60,7 +68,14 @@ def build_system_prompt(lead: EmaLead | None = None, es_primer_contacto: bool = 
     nombre = BOT["nombre"]
     tz = (lead.timezone if (lead and lead.timezone) else _TZ_DEFAULT)
     ahora = datetime.now(ZoneInfo(tz))
-    fecha_hoy = f"{_DIAS[ahora.weekday()]} {ahora.day}/{ahora.month}/{ahora.year}, {ahora.hour:02d}:{ahora.minute:02d}"
+    # SOLO la fecha, sin la hora. Este prompt se reenvía entero en cada mensaje y en cada ronda
+    # del loop (hasta 4), y la caché de OpenAI solo reutiliza PREFIJOS EXACTOS. Con la hora al
+    # minuto aquí —y esta línea sale en el 3er renglón del prompt— el prefijo cambiaba 1440 veces
+    # al día y la caché no pegaba NUNCA: se pagaba tarifa de entrada completa siempre. Ahora
+    # cambia una vez al día. EMA no agenda, no cotiza y no consulta disponibilidad: no hay una
+    # sola regla del bot que necesite saber el minuto. Si algún día hace falta la hora, va al
+    # FINAL del prompt, nunca arriba. Lo cuida tests/test_prompt_caching.py.
+    fecha_hoy = f"{_DIAS[ahora.weekday()]} {ahora.day}/{ahora.month}/{ahora.year}"
 
     primer_contacto = (
         f"Es el PRIMER mensaje de esta persona. Preséntate de forma breve y formal: 'Hola, le "
@@ -71,7 +86,7 @@ def build_system_prompt(lead: EmaLead | None = None, es_primer_contacto: bool = 
 
     return f"""Eres {nombre}, asesora de {EMPRESA['nombre']}. {BOT['tono']}
 
-Fecha y hora actual: {fecha_hoy}.
+Fecha de hoy: {fecha_hoy}.
 
 Sobre nosotros:
 {EMPRESA['que_es']}

@@ -26,8 +26,15 @@ En dev, sin `KAPSO_API_KEY` los envíos son no-op logueados y la firma del webho
 
 ## Pruebas
 ```bash
-python -m pytest tests/ -q      # 100 tests
+python -m pytest tests/ tests_caja_negra/ -q      # 156 tests
 ```
+
+**Este repo es la referencia de documentación de la flota.** `spec.md` (qué debe hacer) +
+`arquitectura.md` (cómo está armado) + `flujo-bot.md` y `flow-clasificacion.md` (qué pasa en un
+turno) + `tests/` (lo mismo, ejecutable) son la estructura que copian los demás proyectos. No la
+simplifiques: la gracia es que un estado no se pueda cambiar en el código sin que la prosa y un
+test queden en evidencia. En particular `tests/test_prompt_caching.py` nació aquí y es el primero
+de la flota.
 
 ## Canales
 - **WhatsApp** → Kapso (`/webhook`, firma HMAC).
@@ -36,10 +43,10 @@ python -m pytest tests/ -q      # 100 tests
 ## Qué hace cada pieza
 | Capa | Archivo | Qué |
 |---|---|---|
-| Bot | `app/services/bot/ai.py` | tool-calling (gpt-4o-mini): `capturar_lead` + `alertar_asesor`, loop 4 rondas |
+| Bot | `app/services/bot/ai.py` | tool-calling (gpt-4o-mini): `capturar_lead` + `alertar_asesor` con **esquema estricto**, loop 4 rondas |
 | Bot | `app/services/bot/handler.py` | orquesta: registra lead, coexistencia, fact_guard, cede al asesor al terminar |
 | Bot | `app/services/bot/leads.py` | CRUD + **cuestionario_completo** + clasificación + score de prioridad |
-| Bot | `app/services/bot/prompt.py` | system prompt formal, sin emojis, no-precio-en-frío |
+| Bot | `app/services/bot/prompt.py` | system prompt formal, sin emojis, no-precio-en-frío. **Prefijo estable** (nada volátil arriba, o se cae la caché) |
 | Bot | `app/services/bot/guards.py` | `fact_guard` anti-cifra inventada |
 | **Fases** | `app/routers/fases.py` | **el centro de mando**: toggles, destinatarios, mensaje de cierre |
 | **Fases** | `app/services/fases_acciones.py` | ejecuta lo que la fase manda al entrar un lead |

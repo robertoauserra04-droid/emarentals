@@ -29,7 +29,8 @@ flowchart TD
     GUARD -->|sí| CTX[carga historial + contexto vivo del panel]
 
     CTX --> IA[GPT con 2 tools:<br/>capturar_lead · alertar_asesor]
-    IA --> GUARDA[fact_guard<br/>bloquea cifras inventadas]
+    IA --> STRICT[esquema estricto:<br/>la API solo deja generar<br/>valores del catálogo]
+    STRICT --> GUARDA[fact_guard<br/>bloquea cifras inventadas]
     GUARDA --> Q{¿cuestionario completo?}
 
     Q -->|falta algo| SIGUE[hace LA siguiente pregunta<br/>y deja el lead en la antesala]
@@ -98,3 +99,23 @@ al prospecto.
 
 El cierre normal **no** usa `alertar_asesor`: cuando el cuestionario termina, el código lo
 detecta solo y la fase decide qué se notifica.
+
+**Las dos tools son de esquema estricto** (`strict: true`). Eso no es un detalle técnico: es lo que
+hace que el bot no pueda equivocarse de columna. El modelo **no puede generar** un `tiempo_renta`
+que no sea `0-6`, `6-12` o `12+`, ni un `tipo_propiedad` fuera de casa/departamento/oficina, ni
+inventarse un campo. Antes el `enum` era una sugerencia: un plazo escrito como "un año" se guardaba
+literal, el lead caía en la columna equivocada, perdía los 35 puntos del plazo, y —como la fase
+decide a quién se avisa y qué cierre recibe el prospecto— **el aviso salía a otra persona y el
+prospecto leía el mensaje de otra fase**. Todo sin ningún síntoma visible en el panel.
+
+Como segunda red, `apply_capturar_lead` **descarta** cualquier valor fuera de catálogo en vez de
+guardarlo: un dato ausente se vuelve a preguntar, uno mal escrito no se vuelve a detectar nunca. El
+catálogo de esa validación se **lee del propio esquema**, así que no puede desincronizarse.
+
+## Qué NO vuelve a preguntar
+
+El bot solo pide lo que le falta, campo por campo. Quien abre con *"necesito amueblar por un año"*
+ya contestó la PREGUNTA 2: el bot registra el plazo y pregunta **solo** el tipo de propiedad. Lo
+decide `leads.falta_del_cuestionario()`, que mira cada campo por su cuenta, y lo refleja el prompt
+vía `prompt._estado_lead()` — las dos mitades tienen que estar de acuerdo, y hay tests de las cuatro
+combinaciones (con/sin tipo × con/sin plazo) en `tests/test_cuestionario.py`.

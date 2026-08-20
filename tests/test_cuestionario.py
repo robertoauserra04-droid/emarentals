@@ -182,3 +182,54 @@ def test_low_priority_completo_no_alerta(db, monkeypatch):
     assert lead.estado == "residencial_baja"
     assert alertas == []                      # no es buen prospecto → no se avisa
     assert lead.bot_active is False           # pero el cuestionario terminó
+
+
+# ─────────── B-2: el cuestionario a la inversa (plazo antes que tipo) ───────────
+# `falta_del_cuestionario` devolvía ["tipo de propiedad", "tiempo de renta"] en cuanto faltaba el
+# tipo, SIN mirar si el plazo ya estaba capturado. Quien abría con "necesito amueblar por un año"
+# recibía el prompt que dice "TODAVÍA NO SABES NADA de este prospecto" y el bot le repreguntaba el
+# plazo que acababa de dar: un turno perdido y una mala primera impresión.
+
+def test_plazo_capturado_no_se_vuelve_a_pedir():
+    """La prueba exacta de B-2."""
+    l = EmaLead(phone="b2-1", tiempo_renta="12+")
+    falta = leads.falta_del_cuestionario(l)
+    assert "tiempo de renta" not in falta
+    assert falta == ["tipo de propiedad"]
+
+
+def test_sin_nada_capturado_se_piden_las_dos():
+    l = EmaLead(phone="b2-2")
+    assert leads.falta_del_cuestionario(l) == ["tipo de propiedad", "tiempo de renta"]
+
+
+def test_las_cuatro_combinaciones_de_tipo_y_plazo():
+    """Con/sin tipo × con/sin plazo. El riesgo del arreglo era dejar de preguntar algo."""
+    sin_nada = EmaLead(phone="b2-3")
+    solo_plazo = EmaLead(phone="b2-4", tiempo_renta="6-12")
+    solo_tipo = EmaLead(phone="b2-5", tipo_propiedad="casa", recamaras=2)
+    completo = EmaLead(phone="b2-6", tipo_propiedad="casa", recamaras=2, tiempo_renta="6-12")
+
+    assert leads.falta_del_cuestionario(sin_nada) == ["tipo de propiedad", "tiempo de renta"]
+    assert leads.falta_del_cuestionario(solo_plazo) == ["tipo de propiedad"]
+    assert leads.falta_del_cuestionario(solo_tipo) == ["tiempo de renta"]
+    assert leads.falta_del_cuestionario(completo) == []
+    assert leads.cuestionario_completo(completo) is True
+
+
+def test_con_solo_el_plazo_el_prompt_ya_no_dice_que_no_sabe_nada():
+    """La otra mitad de B-2: el listado se arregló, pero el prompt tenía su propia prueba de
+    'no sé nada' (`not lead.tipo_propiedad`) que caía en la misma trampa."""
+    from app.services.bot.prompt import build_system_prompt
+
+    p = build_system_prompt(EmaLead(phone="b2-7", tiempo_renta="12+"))
+    assert "TODAVÍA NO SABES NADA" not in p
+    assert "LO QUE YA SABES" in p
+    assert "12 meses o más" in p
+
+
+def test_lead_recien_creado_si_dice_que_no_sabe_nada():
+    """Y sin nada capturado, la frase tiene que seguir apareciendo: es la que arranca bien."""
+    from app.services.bot.prompt import build_system_prompt
+
+    assert "TODAVÍA NO SABES NADA" in build_system_prompt(EmaLead(phone="b2-8"))

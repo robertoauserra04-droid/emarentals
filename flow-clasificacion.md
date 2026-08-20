@@ -35,6 +35,19 @@ PREGUNTA 2 — ¿por cuánto tiempo?
 de renta. Lo decide `leads.cuestionario_completo()`; `leads.falta_del_cuestionario()` dice qué
 falta y se usa tanto en el prompt como en la alerta al asesor.
 
+**No hay un orden obligatorio.** Los faltantes se calculan campo por campo, así que quien conteste
+el plazo antes que el tipo de propiedad no se lo verá repreguntado: el bot pide solo lo que
+realmente falta.
+
+**Los valores del plazo y del tipo están garantizados, no sugeridos.** Las tools del bot usan
+esquema estricto (`strict: true`), así que la API de OpenAI **no puede generar** un `tiempo_renta`
+fuera de `0-6` / `6-12` / `12+` ni un `tipo_propiedad` fuera de casa / departamento / oficina. Esto
+importa aquí más que en ningún otro lado: toda la clasificación de abajo compara contra esos
+valores exactos —`fase_calificada` pregunta `== "12+"`, `TABLA_PLAZO` indexa por la cadena— y un
+plazo mal escrito no daba error, daba **la columna equivocada, el score equivocado y el aviso al
+destinatario equivocado**, en silencio. Como segunda red, `apply_capturar_lead` descarta lo que no
+esté en catálogo en vez de guardarlo, leyendo el catálogo del propio esquema.
+
 ---
 
 ## Regla de oro

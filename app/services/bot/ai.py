@@ -23,69 +23,96 @@ def _model() -> str:
     return settings.openai_model
 
 
+# ─────────── Esquema ESTRICTO ───────────
+# `strict: true` convierte los `enum` de sugerencia en garantía: la API deja de PODER generar un
+# valor fuera de catálogo. Antes esto era documentación para el modelo, y un `tiempo_renta` que
+# llegara como "un año" se guardaba literal → `fase_calificada` no empataba con "12+", el lead
+# caía en Mid en vez de Bueno, perdía 35 puntos de score, y como la FASE decide a quién se avisa
+# y qué cierre recibe el prospecto, un dato mal escrito cambiaba el destinatario del aviso y el
+# mensaje que leía el cliente. Todo en silencio: en el panel el lead se ve completo y correcto.
+#
+# El modo estricto exige tres cosas a la vez: `additionalProperties: false`, TODAS las
+# propiedades en `required`, y `strict: true`. "Opcional" deja de expresarse omitiendo el campo
+# y pasa a expresarse admitiendo `null` — de ahí los `["string", "null"]` y el `null` dentro de
+# cada enum. `apply_capturar_lead` ya salta los vacíos con `if v not in (None, "")`, que es
+# exactamente el contrato que produce este esquema: no hubo que reescribir el guardado.
+_CAMPOS_CAPTURA = [
+    "nombre", "tipo_propiedad", "recamaras", "oficina_m2", "oficina_personas",
+    "tiempo_renta", "uso", "zona", "nivel_interes", "que_pregunto", "resumen",
+    "motivo_perdida", "solo_informacion",
+]
+
 CAPTURAR_LEAD_TOOL = {
     "type": "function",
     "function": {
         "name": "capturar_lead",
+        "strict": True,
         "description": (
             "Registra o actualiza los datos del prospecto conforme lo vas filtrando. Llámala en "
             "cuanto tengas un dato nuevo (tipo de propiedad, recámaras, m²/personas, tiempo de renta). "
-            "No inventes datos. El sistema clasifica solo; tú solo registra lo que la persona diga."
+            "No inventes datos. El sistema clasifica solo; tú solo registra lo que la persona diga. "
+            "Manda null en todo lo que la persona no haya dicho todavía; no lo adivines."
         ),
         "parameters": {
             "type": "object",
+            "additionalProperties": False,
             "properties": {
-                "nombre": {"type": "string", "description": "Nombre de la persona, si lo dio"},
+                "nombre": {"type": ["string", "null"],
+                           "description": "Nombre de la persona, si lo dio"},
                 "tipo_propiedad": {
-                    "type": "string",
-                    "enum": ["oficina", "departamento", "casa"],
+                    "type": ["string", "null"],
+                    "enum": ["oficina", "departamento", "casa", None],
                     "description": "Para qué tipo de propiedad es la renta",
                 },
                 "recamaras": {
-                    "type": "integer",
+                    "type": ["integer", "null"],
                     "description": "Solo departamento o casa: número de recámaras",
                 },
                 "oficina_m2": {
-                    "type": "integer",
+                    "type": ["integer", "null"],
                     "description": "Solo oficina: metros cuadrados aproximados",
                 },
                 "oficina_personas": {
-                    "type": "integer",
+                    "type": ["integer", "null"],
                     "description": "Solo oficina: cuántas personas trabajarán ahí",
                 },
                 "tiempo_renta": {
-                    "type": "string",
-                    "enum": ["0-6", "6-12", "12+"],
-                    "description": "Cuánto tiempo quiere rentar: '0-6' (6 meses o menos), "
-                                   "'6-12' (6 a 12 meses), '12+' (12 meses o más)",
+                    "type": ["string", "null"],
+                    "enum": ["0-6", "6-12", "12+", None],
+                    "description": "Cuánto tiempo quiere rentar, TRADUCIDO a uno de los tres "
+                                   "rangos: '0-6' (6 meses o menos), '6-12' (6 a 12 meses), "
+                                   "'12+' (12 meses o más). 'un año' es '12+'.",
                 },
                 "uso": {
-                    "type": "string",
-                    "enum": ["reventa", "propio"],
+                    "type": ["string", "null"],
+                    "enum": ["reventa", "propio", None],
                     "description": "Si pondrá los muebles frente a SUS clientes/unidades (reventa: "
                                    "Airbnb, desarrollador, coworking) o si los usará él mismo (propio). Solo si es claro.",
                 },
-                "zona": {"type": "string", "description": "Ciudad/zona de entrega (ej. Monterrey, CDMX)"},
+                "zona": {"type": ["string", "null"],
+                         "description": "Ciudad/zona de entrega (ej. Monterrey, CDMX)"},
                 "nivel_interes": {
-                    "type": "string",
-                    "enum": ["Alto", "Medio", "Bajo"],
+                    "type": ["string", "null"],
+                    "enum": ["Alto", "Medio", "Bajo", None],
                     "description": "Qué tan interesada se ve la persona",
                 },
-                "que_pregunto": {"type": "string", "description": "Qué le interesó o preguntó (breve)"},
-                "resumen": {"type": "string", "description": "Resumen en 1-2 frases de lo que necesita"},
+                "que_pregunto": {"type": ["string", "null"],
+                                 "description": "Qué le interesó o preguntó (breve)"},
+                "resumen": {"type": ["string", "null"],
+                            "description": "Resumen en 1-2 frases de lo que necesita"},
                 "motivo_perdida": {
-                    "type": "string",
+                    "type": ["string", "null"],
                     "description": "Solo si la persona ya no está interesada: por qué",
                 },
                 "solo_informacion": {
-                    "type": "boolean",
+                    "type": ["boolean", "null"],
                     "description": "true SOLO si la persona dice explícitamente que no busca "
                                    "rentar ahora y únicamente quiere información, o si se niega "
                                    "a contestar las preguntas del filtro. NO lo pongas solo "
                                    "porque todavía no haya contestado: para eso está el silencio.",
                 },
             },
-            "required": [],
+            "required": _CAMPOS_CAPTURA,
         },
     },
 }
@@ -103,12 +130,15 @@ ALERTAR_ASESOR_TOOL = {
             "al asesor por su cuenta. Llamarla de más hace que se avise a un asesor con datos "
             "incompletos."
         ),
+        "strict": True,
         "parameters": {
             "type": "object",
+            "additionalProperties": False,
             "properties": {
-                "motivo": {"type": "string", "description": "Por qué se pasa a un asesor (breve)"},
+                "motivo": {"type": ["string", "null"],
+                           "description": "Por qué se pasa a un asesor (breve)"},
             },
-            "required": [],
+            "required": ["motivo"],
         },
     },
 }
