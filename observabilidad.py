@@ -142,6 +142,32 @@ def turno(canal: str = "whatsapp", telefono: str | None = None, cliente: str | N
         yield tid
 
 
+#: El core marca los eventos que salen sin turno abierto con este turno_id de relleno.
+_TURNO_HUERFANO = "sin-turno"
+
+
+def _turno_real(st) -> bool:
+    """¿Hay un turno de verdad abierto, o solo el relleno que deja el core?
+
+    `caja_negra.registrar()` es tolerante: si alguien registra un evento sin turno abierto,
+    se inventa uno huérfano `{"turno_id": "sin-turno", ...}` **y lo deja pegado en el
+    contextvar** (no lo resetea). A partir de ese momento `_turno_ctx.get()` ya nunca es None,
+    aunque no haya ningún turno real.
+
+    Preguntar `is not None` a secas, como se hacía antes, daba True para siempre después del
+    primer evento suelto. Consecuencia: un handler con `@accion_panel` que corre FUERA de un
+    request —un job, un comando de consola, un test— emitía `accion_ejecutada` (la forma que
+    significa "esto pasó dentro del turno de un request") en vez de `accion_panel`, y sus
+    eventos se archivaban bajo el turno de relleno. El visor recibe la forma equivocada y el
+    timeline no cuadra con nada. El docstring de `accion_panel` distingue los dos casos a
+    propósito; esto hace que la distinción sea cierta.
+
+    Se descubrió porque dos tests del drop-in fallaban SOLO al correr las dos suites juntas:
+    la de negocio deja un evento suelto y contamina a la siguiente.
+    """
+    return bool(st) and st.get("turno_id") != _TURNO_HUERFANO
+
+
 @contextmanager
 def _turno_o_actual(canal: str = "panel"):
     """Reusa el turno que ya esté abierto (el del middleware) en vez de anidar uno.
@@ -154,7 +180,7 @@ def _turno_o_actual(canal: str = "panel"):
         yield None
         return
     try:
-        heredado = _cn._turno_ctx.get() is not None
+        heredado = _turno_real(_cn._turno_ctx.get())
     except Exception:  # noqa: BLE001
         heredado = False
     if heredado:
@@ -199,11 +225,16 @@ def turno_actual() -> str | None:
 
     Existe para que nadie tenga que meter mano a `_cn._turno_ctx`, que es API privada:
     los repos que lo hacían se rompen en silencio si el core cambia por dentro.
+
+    Devuelve None también cuando lo único que hay es el turno de relleno `"sin-turno"`: quien
+    pregunta "¿hay turno?" quiere saber si sus eventos se van a agrupar con algo, y con el
+    relleno no se agrupan con nada. Ver `_turno_real`.
     """
     if not activa():
         return None
     try:
-        return (_cn._turno_ctx.get() or {}).get("turno_id")
+        st = _cn._turno_ctx.get()
+        return st.get("turno_id") if _turno_real(st) else None
     except Exception:  # noqa: BLE001
         return None
 
