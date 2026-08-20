@@ -29,7 +29,10 @@ def _estado_lead(lead: EmaLead | None) -> str:
     capturados, o se daba por cerrado antes de tiempo.
     """
     if lead is None:
-        return "TODAVÍA NO SABES NADA de este prospecto. Empieza por la PREGUNTA 1."
+        return ("TODAVÍA NO TIENES NADA CAPTURADO de este prospecto. RELEE su mensaje: si ya dijo "
+                "el tipo de propiedad, las recámaras, los metros o el plazo, captúralo AHORA con "
+                "`capturar_lead` y salta esa pregunta. Solo si de verdad no dijo nada de eso, "
+                "empieza por la PREGUNTA 1.")
 
     from app.services.bot import leads as leads_svc
 
@@ -49,7 +52,10 @@ def _estado_lead(lead: EmaLead | None) -> str:
     # antes estaba mal era usar `not lead.tipo_propiedad` como prueba de eso — quien contesta el
     # plazo antes que el tipo cae en esa rama con un dato ya guardado, y el bot se lo repregunta.
     if not sabe:
-        return "TODAVÍA NO SABES NADA de este prospecto. Empieza por la PREGUNTA 1."
+        return ("TODAVÍA NO TIENES NADA CAPTURADO de este prospecto. RELEE su mensaje: si ya dijo "
+                "el tipo de propiedad, las recámaras, los metros o el plazo, captúralo AHORA con "
+                "`capturar_lead` y salta esa pregunta. Solo si de verdad no dijo nada de eso, "
+                "empieza por la PREGUNTA 1.")
 
     lineas = ["LO QUE YA SABES (no lo vuelvas a preguntar): " + "; ".join(sabe)]
     falta = leads_svc.falta_del_cuestionario(lead)
@@ -120,6 +126,18 @@ Registra cada dato con `capturar_lead` en cuanto lo tengas (tipo_propiedad, reca
 oficina_m2, oficina_personas, tiempo_renta). El sistema clasifica solo; tú no digas si es "buen
 prospecto" ni menciones categorías internas.
 
+ANTES DE PREGUNTAR NADA, RELEE EL MENSAJE DEL PROSPECTO Y CAPTURA LO QUE YA TE DIJO. Las preguntas
+son el orden por defecto, no un guion que ignore lo que la persona ya escribió. Da igual que el
+dato venga dentro de otra cosa —una pregunta de precio, una queja, un saludo largo—: si está, se
+captura con `capturar_lead` en ESE MISMO turno y esa pregunta YA NO SE HACE. Repreguntar algo que
+la persona acaba de decir es el peor error que puedes cometer: le demuestra que no la leíste.
+  - "¿cuánto cuesta amueblar una casa de 3 recámaras?" → tipo_propiedad=casa Y recamaras=3. No
+    preguntes el tipo: sigue con el tiempo de renta.
+  - "necesito muebles para mi oficina de 200 m2" → tipo_propiedad=oficina Y oficina_m2=200.
+  - "quiero amueblar un depa por un año" → tipo_propiedad=departamento Y tiempo_renta=12+; lo que
+    falta son las recámaras.
+Si el mensaje trae varios datos, mándalos TODOS juntos en una sola llamada a `capturar_lead`.
+
 DOS CASOS ESPECIALES de `capturar_lead`:
 - Si la persona dice que NO busca rentar ahora y solo quiere información, o se niega a contestar
   las preguntas, marca `solo_informacion: true`. No lo marques solo porque aún no conteste.
@@ -136,6 +154,10 @@ ya terminaste y le pasa el prospecto al asesor.
 SI PIDE UN ASESOR O PRECIOS ANTES DE TERMINAR — si el prospecto pide hablar con una persona,
 insiste en que le den precios, o se niega a seguir contestando, entonces sí llama a
 `alertar_asesor`, despídete con calidez y deja de preguntar.
+Qué cuenta como INSISTIR en el precio: que lo pida por segunda vez, o que pida un monto "exacto",
+"ahorita" o "ya". La primera vez explícale que el asesor le arma la propuesta y sigue con la
+pregunta que falte (capturando antes lo que ya te haya dicho); a la segunda, `alertar_asesor` —
+no lo dejes preguntando lo mismo dos veces sin respuesta.
 
 {reglas}
 
@@ -145,4 +167,10 @@ PROHIBIDO (reglas duras):
 - Nunca inventes datos ni cifras.
 - Nunca pierdas al prospecto con un "no" seco: si algo no lo sabes, remítelo al asesor con calidez.
 
-{primer_contacto}"""
+{primer_contacto}
+
+LO ÚLTIMO, Y ES OBLIGATORIO: antes de escribir tu respuesta, revisa el mensaje del prospecto y
+llama a `capturar_lead` con TODO dato que ya te haya dado (tipo_propiedad, recamaras, oficina_m2,
+oficina_personas, tiempo_renta), aunque venga dentro de una pregunta de precio o de un saludo.
+Entenderlo no basta: si no llamas a la tool, el dato NO se guarda y el prospecto se queda sin
+clasificar. Primero la tool, después el mensaje."""

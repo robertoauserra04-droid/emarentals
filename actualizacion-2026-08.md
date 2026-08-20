@@ -793,7 +793,7 @@ menos es un system prompt entero de menos. Vale sacar el número antes de tocar 
 
 ## Verificación antes de desplegar
 
-1. **Los 103 tests en verde**, más los dos casos de regresión nuevos del §9.
+1. **Los 157 tests en verde** (eran 103), corriendo `tests/` y `tests_caja_negra/` juntas.
 2. **El caso canónico de este proyecto:** un prospecto de oficina de 200 m² a doce meses, escrito en
    lenguaje natural ("como 200 metros", "por un año"). Verificar que (a) `tiempo_renta` quede en
    `"12+"`, (b) la fase resultante sea `oficina_bueno`, (c) el score sea **91** (36+35+20), y (d) el aviso salga al
